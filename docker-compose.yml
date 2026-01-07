@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   app:
     build: .
@@ -10,6 +8,8 @@ services:
       - BASE_URL=http://localhost:8080
       - REDIS_ADDR=redis:6379
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/go2short?sslmode=disable
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=admin123
     depends_on:
       postgres:
         condition: service_healthy

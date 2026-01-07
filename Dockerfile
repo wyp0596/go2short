@@ -1,16 +1,24 @@
-# Build stage
-FROM golang:1.25-alpine AS builder
+# Frontend build stage
+FROM alpine:3.19 AS frontend
+
+RUN apk add --no-cache nodejs npm
+WORKDIR /app/web
+COPY web/package*.json ./
+RUN npm ci
+COPY web/ ./
+RUN npm run build
+
+# Backend build stage
+FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
-# Copy go mod files
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source
 COPY . .
+COPY --from=frontend /app/web/dist ./web/dist
 
-# Build binary
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app/go2short ./cmd/app
 
 # Runtime stage

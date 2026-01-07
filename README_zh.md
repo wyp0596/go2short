@@ -6,8 +6,9 @@
 
 - **极速重定向**：P50 < 5ms，Redis 优先 + Postgres 兜底
 - **异步统计**：点击事件走 Redis Streams，重定向零同步写库
-- **部署简单**：单二进制，Docker 友好
+- **部署简单**：单二进制，内嵌管理界面
 - **水平扩展**：无状态应用，加副本即可
+- **管理后台**：链接管理、点击统计，Vue 3 构建
 
 ## 快速开始
 
@@ -15,10 +16,14 @@
 # 一键启动
 docker compose up -d --build
 
-# 创建短链
+# 管理后台
+open http://localhost:8080/admin/
+# 默认账号：admin / admin123
+
+# 创建短链（API）
 curl -X POST http://localhost:8080/api/links \
   -H "Content-Type: application/json" \
-  -d '{"long_url": "https://example.com/very/long/path"}'
+  -d '{"url": "https://example.com/very/long/path"}'
 
 # 使用
 curl -L http://localhost:8080/{code}
@@ -30,8 +35,24 @@ curl -L http://localhost:8080/{code}
 # 仅启动依赖
 docker compose up -d postgres redis
 
+# 构建前端（嵌入需要）
+cd web && npm install && npm run build && cd ..
+
 # 本地运行应用
-go run cmd/app/main.go
+go run ./cmd/app
+```
+
+### 源码构建
+
+```bash
+# 构建前端
+cd web && npm install && npm run build && cd ..
+
+# 构建 Go 二进制（包含嵌入的前端）
+go build -o go2short ./cmd/app
+
+# 运行
+./go2short
 ```
 
 ## 架构
@@ -53,6 +74,9 @@ go run cmd/app/main.go
 | `CODE_LENGTH` | `8` | 短码长度 |
 | `REDIS_ADDR` | `localhost:6379` | Redis 地址 |
 | `DATABASE_URL` | - | Postgres 连接串 |
+| `ADMIN_USERNAME` | `admin` | 管理员用户名 |
+| `ADMIN_PASSWORD` | `admin123` | 管理员密码 |
+| `ADMIN_TOKEN_TTL` | `24h` | 登录会话时长 |
 
 完整配置见 [docs/Project.md](docs/Project.md)。
 

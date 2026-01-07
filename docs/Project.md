@@ -195,7 +195,7 @@ Content-Type: application/json
 
 Request:
 {
-  "long_url": "https://example.com/very/long/path",
+  "url": "https://example.com/very/long/path",
   "expires_at": "2024-12-31T23:59:59Z",  // optional
   "custom_code": "mycode"                 // optional
 }
@@ -212,6 +212,39 @@ Response: 201 Created
 - URL: http/https only, max 2048 chars
 - Code: base62, 6-12 chars
 - Block internal IPs (SSRF prevention)
+
+### Admin API
+
+All admin endpoints require `Authorization: Bearer <token>` header (except login).
+
+```
+POST /api/admin/login
+Request:  {"username": "admin", "password": "xxx"}
+Response: {"token": "..."}
+
+POST /api/admin/logout
+Response: {"message": "logged out"}
+
+GET /api/admin/links?page=1&limit=20&search=keyword
+Response: {"links": [...], "total": 100, "page": 1, "limit": 20}
+
+PUT /api/admin/links/:code
+Request:  {"long_url": "https://...", "expires_at": "2024-12-31T23:59:59Z"}
+Response: {"message": "link updated"}
+
+DELETE /api/admin/links/:code
+Response: {"message": "link deleted"}
+
+PATCH /api/admin/links/:code/disable
+Request:  {"disabled": true}
+Response: {"message": "link updated"}
+
+GET /api/admin/links/:code/stats?days=30
+Response: {"total_clicks": 100, "daily_clicks": [{"date": "2024-01-01", "clicks": 10}, ...]}
+
+GET /api/admin/stats/overview
+Response: {"total_links": 50, "active_links": 45, "total_clicks": 1000, "today_clicks": 100}
+```
 
 ---
 
@@ -246,6 +279,11 @@ STREAM_NAME=su:clicks
 STREAM_GROUP=su-worker
 WORKER_BATCH_SIZE=500
 WORKER_FLUSH_INTERVAL=200ms
+
+# Admin
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin123
+ADMIN_TOKEN_TTL=24h
 ```
 
 ---
@@ -296,32 +334,55 @@ Structured JSON, sampled on redirect path:
 ```
 go2short/
 ├── cmd/
-│   └── app/              # main.go
+│   └── app/              # main.go (single binary with embedded frontend)
 ├── internal/
 │   ├── config/           # env loading
-│   ├── handler/          # HTTP handlers
+│   ├── handler/          # HTTP handlers (redirect, link, admin)
 │   ├── redirect/         # redirect logic (performance critical)
-│   ├── link/             # link CRUD (can use ORM)
+│   ├── link/             # link CRUD
 │   ├── cache/            # Redis operations
 │   ├── store/            # Postgres operations
 │   ├── events/           # stream producer/consumer
+│   ├── middleware/       # auth, logging
 │   └── metrics/          # Prometheus collectors
 ├── migrations/           # SQL migrations
-├── web/                  # Vue admin (optional)
+├── web/                  # Vue 3 admin dashboard
+│   ├── src/
+│   │   ├── api/          # API client
+│   │   ├── router/       # Vue Router
+│   │   ├── views/        # Login, Dashboard, Links, LinkStats
+│   │   └── components/
+│   ├── embed.go          # go:embed directive
+│   └── dist/             # built assets (embedded into binary)
 ├── docs/
 └── docker-compose.yml
 ```
+
+### Build & Deploy
+
+```bash
+# Build frontend
+cd web && npm install && npm run build && cd ..
+
+# Build single binary (includes embedded frontend)
+go build -o go2short ./cmd/app
+
+# Or use Docker (multi-stage build)
+docker compose up -d --build
+```
+
+**Access admin dashboard**: `http://localhost:8080/admin/`
 
 ---
 
 ## Security Checklist
 
-- [ ] URL validation: http/https only
-- [ ] Block private IP ranges (10.x, 172.16-31.x, 192.168.x)
-- [ ] Hash IP/UA before storage
-- [ ] Admin API behind auth
+- [x] URL validation: http/https only
+- [x] Block private IP ranges (10.x, 172.16-31.x, 192.168.x)
+- [x] Hash IP/UA before storage
+- [x] Admin API behind auth (token-based)
 - [ ] Rate limiting at gateway
-- [ ] No secrets in logs
+- [x] No secrets in logs
 
 ---
 

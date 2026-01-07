@@ -1,9 +1,18 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# IDE
+.idea/
+.playwright-mcp/
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
+
+# web
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+
+
+
+
+
+
 
 # testing
 /coverage
@@ -32,10 +41,4 @@ yarn-error.log*
 .vercel
 
 # typescript
-*.tsbuildinfo
 next-env.d.ts
-/.specstory
-/.idea
-
-# playwright
-.playwright-mcp/

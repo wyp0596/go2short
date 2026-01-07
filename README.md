@@ -6,8 +6,9 @@ A minimal, high-performance URL shortener built with Go.
 
 - **Fast redirects**: P50 < 5ms, Redis-first with Postgres fallback
 - **Async analytics**: Click events via Redis Streams, no sync writes on redirect
-- **Simple deployment**: Single binary, Docker-ready
+- **Simple deployment**: Single binary with embedded admin UI
 - **Horizontally scalable**: Stateless app, scale with replicas
+- **Admin dashboard**: Link management, click stats, built with Vue 3
 
 ## Quick Start
 
@@ -15,10 +16,14 @@ A minimal, high-performance URL shortener built with Go.
 # One command to start everything
 docker compose up -d --build
 
-# Create a short link
+# Admin dashboard
+open http://localhost:8080/admin/
+# Default login: admin / admin123
+
+# Create a short link (API)
 curl -X POST http://localhost:8080/api/links \
   -H "Content-Type: application/json" \
-  -d '{"long_url": "https://example.com/very/long/path"}'
+  -d '{"url": "https://example.com/very/long/path"}'
 
 # Use it
 curl -L http://localhost:8080/{code}
@@ -30,8 +35,24 @@ curl -L http://localhost:8080/{code}
 # Start dependencies only
 docker compose up -d postgres redis
 
+# Build frontend (required for embedding)
+cd web && npm install && npm run build && cd ..
+
 # Run the app locally
-go run cmd/app/main.go
+go run ./cmd/app
+```
+
+### Build from Source
+
+```bash
+# Build frontend
+cd web && npm install && npm run build && cd ..
+
+# Build Go binary (includes embedded frontend)
+go build -o go2short ./cmd/app
+
+# Run
+./go2short
 ```
 
 ## Architecture
@@ -53,6 +74,9 @@ Request → Gateway → App → Redis (cache) → Postgres (store)
 | `CODE_LENGTH` | `8` | Generated code length |
 | `REDIS_ADDR` | `localhost:6379` | Redis connection |
 | `DATABASE_URL` | - | Postgres connection |
+| `ADMIN_USERNAME` | `admin` | Admin login username |
+| `ADMIN_PASSWORD` | `admin123` | Admin login password |
+| `ADMIN_TOKEN_TTL` | `24h` | Admin session duration |
 
 See [docs/Project.md](docs/Project.md) for full configuration.
 

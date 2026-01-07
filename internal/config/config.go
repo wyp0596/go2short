@@ -13,6 +13,11 @@ type Config struct {
 	HTTPWriteTimeout time.Duration
 	BaseURL          string
 
+	// Admin
+	AdminUsername string
+	AdminPassword string
+	AdminTokenTTL time.Duration
+
 	// Redirect
 	RedirectStatusCode int
 	CodeLength         int
@@ -42,6 +47,9 @@ func Load() *Config {
 		HTTPReadTimeout:     getDuration("HTTP_READ_TIMEOUT", 5*time.Second),
 		HTTPWriteTimeout:    getDuration("HTTP_WRITE_TIMEOUT", 5*time.Second),
 		BaseURL:             getEnv("BASE_URL", "http://localhost:8080"),
+		AdminUsername:       getEnv("ADMIN_USERNAME", "admin"),
+		AdminPassword:       getEnv("ADMIN_PASSWORD", "admin123"),
+		AdminTokenTTL:       getDuration("ADMIN_TOKEN_TTL", 24*time.Hour),
 		RedirectStatusCode:  getInt("REDIRECT_STATUS_CODE", 302),
 		CodeLength:          getInt("CODE_LENGTH", 8),
 		RedisAddr:           getEnv("REDIS_ADDR", "localhost:6379"),

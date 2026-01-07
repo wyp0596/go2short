@@ -112,3 +112,165 @@ type ClickEvent struct {
 func (s *Store) Close() error {
 	return s.db.Close()
 }
+
+// ListLinks returns paginated links with optional search.
+func (s *Store) ListLinks(ctx context.Context, search string, limit, offset int) ([]Link, int, error) {
+	var total int
+	var rows *sql.Rows
+	var err error
+
+	if search != "" {
+		pattern := "%" + search + "%"
+		err = s.db.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM links WHERE code ILIKE $1 OR long_url ILIKE $1`, pattern).Scan(&total)
+		if err != nil {
+			return nil, 0, err
+		}
+		rows, err = s.db.QueryContext(ctx,
+			`SELECT code, long_url, created_at, expires_at, is_disabled FROM links
+			 WHERE code ILIKE $1 OR long_url ILIKE $1
+			 ORDER BY created_at DESC LIMIT $2 OFFSET $3`, pattern, limit, offset)
+	} else {
+		err = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM links`).Scan(&total)
+		if err != nil {
+			return nil, 0, err
+		}
+		rows, err = s.db.QueryContext(ctx,
+			`SELECT code, long_url, created_at, expires_at, is_disabled FROM links
+			 ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+	}
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var links []Link
+	for rows.Next() {
+		var l Link
+		if err := rows.Scan(&l.Code, &l.LongURL, &l.CreatedAt, &l.ExpiresAt, &l.IsDisabled); err != nil {
+			return nil, 0, err
+		}
+		links = append(links, l)
+	}
+	return links, total, rows.Err()
+}
+
+// UpdateLink updates a link's long_url and expires_at.
+func (s *Store) UpdateLink(ctx context.Context, code, longURL string, expiresAt *time.Time) error {
+	var exp sql.NullTime
+	if expiresAt != nil {
+		exp = sql.NullTime{Time: *expiresAt, Valid: true}
+	}
+	result, err := s.db.ExecContext(ctx,
+		`UPDATE links SET long_url = $1, expires_at = $2 WHERE code = $3`,
+		longURL, exp, code)
+	if err != nil {
+		return err
+	}
+	n, _ := result.RowsAffected()
+	if n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+// SetLinkDisabled enables or disables a link.
+func (s *Store) SetLinkDisabled(ctx context.Context, code string, disabled bool) error {
+	result, err := s.db.ExecContext(ctx,
+		`UPDATE links SET is_disabled = $1 WHERE code = $2`, disabled, code)
+	if err != nil {
+		return err
+	}
+	n, _ := result.RowsAffected()
+	if n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+// DeleteLink removes a link.
+func (s *Store) DeleteLink(ctx context.Context, code string) error {
+	result, err := s.db.ExecContext(ctx, `DELETE FROM links WHERE code = $1`, code)
+	if err != nil {
+		return err
+	}
+	n, _ := result.RowsAffected()
+	if n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+// LinkClickStats holds click statistics for a link.
+type LinkClickStats struct {
+	TotalClicks int       `json:"total_clicks"`
+	DailyClicks []DayClick `json:"daily_clicks"`
+}
+
+type DayClick struct {
+	Date   string `json:"date"`
+	Clicks int    `json:"clicks"`
+}
+
+// GetLinkStats returns click statistics for a link.
+func (s *Store) GetLinkStats(ctx context.Context, code string, days int) (*LinkClickStats, error) {
+	var total int
+	err := s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM click_events WHERE code = $1`, code).Scan(&total)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT DATE(ts) as day, COUNT(*) as clicks FROM click_events
+		 WHERE code = $1 AND ts >= NOW() - INTERVAL '1 day' * $2
+		 GROUP BY DATE(ts) ORDER BY day DESC`, code, days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var daily []DayClick
+	for rows.Next() {
+		var d DayClick
+		var date time.Time
+		if err := rows.Scan(&date, &d.Clicks); err != nil {
+			return nil, err
+		}
+		d.Date = date.Format("2006-01-02")
+		daily = append(daily, d)
+	}
+	return &LinkClickStats{TotalClicks: total, DailyClicks: daily}, rows.Err()
+}
+
+// OverviewStats holds overall statistics.
+type OverviewStats struct {
+	TotalLinks       int `json:"total_links"`
+	ActiveLinks      int `json:"active_links"`
+	TotalClicks      int `json:"total_clicks"`
+	TodayClicks      int `json:"today_clicks"`
+}
+
+// GetOverviewStats returns overall statistics.
+func (s *Store) GetOverviewStats(ctx context.Context) (*OverviewStats, error) {
+	var stats OverviewStats
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM links`).Scan(&stats.TotalLinks)
+	if err != nil {
+		return nil, err
+	}
+	err = s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM links WHERE is_disabled = false AND (expires_at IS NULL OR expires_at > NOW())`).Scan(&stats.ActiveLinks)
+	if err != nil {
+		return nil, err
+	}
+	err = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM click_events`).Scan(&stats.TotalClicks)
+	if err != nil {
+		return nil, err
+	}
+	err = s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM click_events WHERE ts >= DATE_TRUNC('day', NOW())`).Scan(&stats.TodayClicks)
+	if err != nil {
+		return nil, err
+	}
+	return &stats, nil
+}
