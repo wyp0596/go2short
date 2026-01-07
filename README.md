@@ -29,12 +29,12 @@
 
 ### 2.2 进程/服务拆分（Docker）
 - `gateway`：TLS 终止、连接复用、压缩、基础限流
-- `app`：API + Redirect（Go Gin）
-- `worker`：消费点击事件入库（Go）
+- `app`：API + Redirect + 点击事件消费（Go Gin + 内置 goroutine）
 - `postgres`：主库
 - `redis`：缓存 + Streams
 
-> 水平扩展：`app`、`worker` 可多副本；Redis/Postgres 逐步演进到 HA/托管。
+> 单进程 MVP：app 内启动消费协程批量写库；需要时可拆成独立 worker 镜像。
+> 水平扩展：`app` 可多副本；Redis/Postgres 逐步演进到 HA/托管。
 
 
 ## 3. 请求路径与关键原则
@@ -127,7 +127,8 @@
 - `referer`（可选）
 - `req_id`（用于追踪）
 
-### 5.2 Worker 行为
+### 5.2 消费协程行为（app 内启动）
+- app 启动时 `go consumeClicks()` 启动消费协程
 - 从 Redis Streams 消费（consumer group）
 - 批量聚合写入 Postgres（减少事务与连接压力）
 - 出错重试与 DLQ（可选：用另一个 stream 存失败事件）
@@ -164,7 +165,7 @@
 - `redis_cache_hits_total` / `redis_cache_misses_total`
 - `db_queries_total` / `db_latency_ms_bucket`
 - `click_events_enqueued_total`
-- worker：
+- 消费协程：
   - `worker_batch_insert_total`
   - `stream_lag`（消费延迟）
 
@@ -198,8 +199,7 @@
 ```
 
 /cmd
-/app         # gin server
-/worker      # click event consumer
+/app         # gin server + click event consumer
 /internal
 /config
 /http        # handlers/middlewares
