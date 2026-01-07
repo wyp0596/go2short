@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/warren/go2short/internal/cache"
-	"github.com/warren/go2short/internal/store"
+	"github.com/wyp0596/go2short/internal/cache"
+	"github.com/wyp0596/go2short/internal/store"
 )
 
 var base62Regex = regexp.MustCompile(`^[0-9a-zA-Z]+$`)

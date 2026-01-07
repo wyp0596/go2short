@@ -9,16 +9,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/warren/go2short/internal/cache"
-	"github.com/warren/go2short/internal/config"
-	"github.com/warren/go2short/internal/events"
-	"github.com/warren/go2short/internal/handler"
-	"github.com/warren/go2short/internal/link"
-	"github.com/warren/go2short/internal/logger"
-	_ "github.com/warren/go2short/internal/metrics" // register metrics
-	"github.com/warren/go2short/internal/middleware"
-	"github.com/warren/go2short/internal/redirect"
-	"github.com/warren/go2short/internal/store"
+	"github.com/wyp0596/go2short/internal/cache"
+	"github.com/wyp0596/go2short/internal/config"
+	"github.com/wyp0596/go2short/internal/events"
+	"github.com/wyp0596/go2short/internal/handler"
+	"github.com/wyp0596/go2short/internal/link"
+	"github.com/wyp0596/go2short/internal/logger"
+	_ "github.com/wyp0596/go2short/internal/metrics" // register metrics
+	"github.com/wyp0596/go2short/internal/middleware"
+	"github.com/wyp0596/go2short/internal/redirect"
+	"github.com/wyp0596/go2short/internal/store"
 )
 
 func main() {

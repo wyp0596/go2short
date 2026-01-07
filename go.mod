@@ -1,4 +1,4 @@
-module github.com/warren/go2short
+module github.com/wyp0596/go2short
 
 go 1.23.0
 

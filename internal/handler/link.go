@@ -5,12 +5,12 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/warren/go2short/internal/link"
+	"github.com/wyp0596/go2short/internal/link"
 )
 
 type LinkHandler struct {
-	service  *link.Service
-	baseURL  string
+	service *link.Service
+	baseURL string
 }
 
 func NewLinkHandler(s *link.Service, baseURL string) *LinkHandler {

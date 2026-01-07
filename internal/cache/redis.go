@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/warren/go2short/internal/config"
+	"github.com/wyp0596/go2short/internal/config"
 )
 
 type Cache struct {

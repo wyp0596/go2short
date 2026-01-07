@@ -9,19 +9,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/warren/go2short/internal/cache"
-	"github.com/warren/go2short/internal/store"
+	"github.com/wyp0596/go2short/internal/cache"
+	"github.com/wyp0596/go2short/internal/store"
 )
 
 const charset = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 var (
-	ErrInvalidURL     = errors.New("invalid URL")
-	ErrURLTooLong     = errors.New("URL too long (max 2048)")
-	ErrBlockedIP      = errors.New("URL points to private IP")
-	ErrCodeTaken      = errors.New("custom code already taken")
-	ErrInvalidCode    = errors.New("invalid custom code")
-	ErrMaxRetries     = errors.New("failed to generate unique code")
+	ErrInvalidURL  = errors.New("invalid URL")
+	ErrURLTooLong  = errors.New("URL too long (max 2048)")
+	ErrBlockedIP   = errors.New("URL points to private IP")
+	ErrCodeTaken   = errors.New("custom code already taken")
+	ErrInvalidCode = errors.New("invalid custom code")
+	ErrMaxRetries  = errors.New("failed to generate unique code")
 )
 
 type Service struct {

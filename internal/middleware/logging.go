@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/warren/go2short/internal/logger"
+	"github.com/wyp0596/go2short/internal/logger"
 )
 
 func RequestLogger() gin.HandlerFunc {

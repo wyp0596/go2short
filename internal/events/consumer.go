@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/warren/go2short/internal/logger"
-	"github.com/warren/go2short/internal/store"
+	"github.com/wyp0596/go2short/internal/logger"
+	"github.com/wyp0596/go2short/internal/store"
 )
 
 type Consumer struct {

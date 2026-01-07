@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/warren/go2short/internal/events"
-	"github.com/warren/go2short/internal/metrics"
-	"github.com/warren/go2short/internal/redirect"
+	"github.com/wyp0596/go2short/internal/events"
+	"github.com/wyp0596/go2short/internal/metrics"
+	"github.com/wyp0596/go2short/internal/redirect"
 )
 
 type RedirectHandler struct {

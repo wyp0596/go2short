@@ -7,7 +7,7 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
-	"github.com/warren/go2short/internal/config"
+	"github.com/wyp0596/go2short/internal/config"
 )
 
 type Link struct {
