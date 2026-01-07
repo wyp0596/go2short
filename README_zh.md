@@ -12,11 +12,8 @@
 ## 快速开始
 
 ```bash
-# 启动依赖
-docker-compose up -d postgres redis
-
-# 运行应用
-go run cmd/app/main.go
+# 一键启动
+docker compose up -d --build
 
 # 创建短链
 curl -X POST http://localhost:8080/api/links \
@@ -24,7 +21,17 @@ curl -X POST http://localhost:8080/api/links \
   -d '{"long_url": "https://example.com/very/long/path"}'
 
 # 使用
-curl -v http://localhost:8080/{code}
+curl -L http://localhost:8080/{code}
+```
+
+### 本地开发
+
+```bash
+# 仅启动依赖
+docker compose up -d postgres redis
+
+# 本地运行应用
+go run cmd/app/main.go
 ```
 
 ## 架构

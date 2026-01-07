@@ -12,11 +12,8 @@ A minimal, high-performance URL shortener built with Go.
 ## Quick Start
 
 ```bash
-# Start dependencies
-docker-compose up -d postgres redis
-
-# Run the app
-go run cmd/app/main.go
+# One command to start everything
+docker compose up -d --build
 
 # Create a short link
 curl -X POST http://localhost:8080/api/links \
@@ -24,7 +21,17 @@ curl -X POST http://localhost:8080/api/links \
   -d '{"long_url": "https://example.com/very/long/path"}'
 
 # Use it
-curl -v http://localhost:8080/{code}
+curl -L http://localhost:8080/{code}
+```
+
+### Local Development
+
+```bash
+# Start dependencies only
+docker compose up -d postgres redis
+
+# Run the app locally
+go run cmd/app/main.go
 ```
 
 ## Architecture

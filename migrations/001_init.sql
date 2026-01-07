@@ -52,5 +52,5 @@ $$ LANGUAGE plpgsql;
 
 -- Create partitions for next 3 months
 SELECT create_click_partition(CURRENT_DATE);
-SELECT create_click_partition(CURRENT_DATE + INTERVAL '1 month');
-SELECT create_click_partition(CURRENT_DATE + INTERVAL '2 months');
+SELECT create_click_partition((CURRENT_DATE + INTERVAL '1 month')::DATE);
+SELECT create_click_partition((CURRENT_DATE + INTERVAL '2 months')::DATE);
