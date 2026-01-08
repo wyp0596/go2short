@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { getAPITokens, createAPIToken, deleteAPIToken, type APIToken } from '../api'
 
 const tokens = ref<APIToken[]>([])
 const loading = ref(true)
 const origin = window.location.origin
+const curlCommand = computed(() => `curl -X POST ${origin}/api/links -H 'Authorization: Bearer YOUR_TOKEN' -H 'Content-Type: application/json' -d '{"long_url":"https://example.com"}'`)
 
 const showModal = ref(false)
 const formName = ref('')
@@ -116,10 +117,18 @@ function formatDate(date: string) {
       <p class="mt-1 text-sm text-blue-700">
         Use the token to create short links via API:
       </p>
-      <pre class="mt-2 text-xs bg-blue-100 p-2 rounded overflow-x-auto">curl -X POST {{ origin }}/api/links \
+      <div class="mt-2 flex items-start gap-2">
+        <pre class="flex-1 text-xs bg-blue-100 p-2 rounded overflow-x-auto">curl -X POST {{ origin }}/api/links \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"long_url":"https://example.com"}'</pre>
+        <button
+          @click="copyToClipboard(curlCommand)"
+          class="px-2 py-1 text-xs border border-blue-300 rounded text-blue-700 hover:bg-blue-100"
+        >
+          Copy
+        </button>
+      </div>
     </div>
 
     <!-- Create Modal -->

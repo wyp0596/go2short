@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -53,7 +54,10 @@ func main() {
 	// Initialize admin
 	authMiddleware := middleware.NewAuthMiddleware(c.Client(), cfg.RedisKeyPrefix)
 	apiTokenMiddleware := middleware.NewAPITokenMiddleware(s)
-	adminHandler := handler.NewAdminHandler(s, c, authMiddleware, cfg)
+	adminHandler := handler.NewAdminHandler(s, c, authMiddleware, cfg, linkService)
+
+	// Initialize rate limiter (60 requests per minute for link creation)
+	rateLimiter := middleware.NewRateLimiter(c.Client(), cfg.RedisKeyPrefix, 60, time.Minute)
 
 	// Start click event consumer
 	consumer := events.NewConsumer(
@@ -91,7 +95,9 @@ func main() {
 
 	// API routes
 	api := r.Group("/api")
-	api.POST("/links", apiTokenMiddleware.RequireAPIToken(), linkHandler.Create)
+	api.POST("/links", apiTokenMiddleware.RequireAPIToken(), rateLimiter.Limit(), linkHandler.Create)
+	api.POST("/links/batch", apiTokenMiddleware.RequireAPIToken(), rateLimiter.Limit(), linkHandler.BatchCreate)
+	api.GET("/links/:code/preview", apiTokenMiddleware.RequireAPIToken(), linkHandler.Preview)
 
 	// Admin routes
 	admin := api.Group("/admin")
@@ -100,6 +106,7 @@ func main() {
 	adminAuth := admin.Group("")
 	adminAuth.Use(authMiddleware.RequireAuth())
 	adminAuth.POST("/logout", adminHandler.Logout)
+	adminAuth.POST("/links", adminHandler.CreateLink)
 	adminAuth.GET("/links", adminHandler.ListLinks)
 	adminAuth.PUT("/links/:code", adminHandler.UpdateLink)
 	adminAuth.DELETE("/links/:code", adminHandler.DeleteLink)
@@ -138,6 +145,9 @@ func main() {
 		data, _ := fs.ReadFile(distFS, "index.html")
 		c.Data(http.StatusOK, "text/html; charset=utf-8", data)
 	})
+
+	// QR code (must be before /:code)
+	r.GET("/:code/qr", linkHandler.QRCode)
 
 	// Redirect (must be last - catches all other paths)
 	r.GET("/:code", redirectHandler.Handle)

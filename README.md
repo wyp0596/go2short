@@ -94,15 +94,46 @@ See [docs/Project.md](docs/Project.md) for full configuration.
 GET /:code → 302 redirect
 ```
 
+### QR Code
+```
+GET /:code/qr?size=256 → PNG image
+
+# size: 128-1024 (default 256)
+```
+
 ### Create Link (requires API Token)
 ```
 POST /api/links
 Authorization: Bearer <api_token>
 
-{"long_url": "https://..."}
+{"long_url": "https://...", "custom_code": "mycode", "expires_at": "2025-12-31T23:59:59Z"}
 
-→ {"code": "abc123", "short_url": "https://go2.sh/abc123"}
+→ {"code": "abc123", "short_url": "https://go2.sh/abc123", "created_at": "..."}
 ```
+
+### Batch Create (requires API Token)
+```
+POST /api/links/batch
+Authorization: Bearer <api_token>
+
+{"items": [{"long_url": "https://..."}, {"long_url": "https://...", "custom_code": "foo"}]}
+
+→ {"results": [{"index": 0, "code": "abc123", "short_url": "..."}, {"index": 1, "code": "foo", "short_url": "..."}]}
+
+# Max 100 items per request
+```
+
+### Link Preview (requires API Token)
+```
+GET /api/links/:code/preview
+Authorization: Bearer <api_token>
+
+→ {"code": "abc123", "long_url": "https://..."}
+```
+
+### Rate Limiting
+- Link creation endpoints: 60 requests/minute per IP
+- Headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
 
 ### API Token Management (Admin)
 ```

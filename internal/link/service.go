@@ -182,3 +182,47 @@ func isPrivateHost(host string) bool {
 
 	return false
 }
+
+// BatchCreateRequest holds a single item in batch create.
+type BatchCreateRequest struct {
+	LongURL    string
+	ExpiresAt  *time.Time
+	CustomCode string
+}
+
+// BatchCreateResult holds the result for a single item.
+type BatchCreateResult struct {
+	Index int
+	Code  string
+	Error error
+}
+
+// BatchCreate creates multiple links. Returns results for each item.
+func (s *Service) BatchCreate(ctx context.Context, requests []BatchCreateRequest) []BatchCreateResult {
+	results := make([]BatchCreateResult, len(requests))
+	for i, req := range requests {
+		result, err := s.Create(ctx, &CreateRequest{
+			LongURL:    req.LongURL,
+			ExpiresAt:  req.ExpiresAt,
+			CustomCode: req.CustomCode,
+		})
+		if err != nil {
+			results[i] = BatchCreateResult{Index: i, Error: err}
+		} else {
+			results[i] = BatchCreateResult{Index: i, Code: result.Code}
+		}
+	}
+	return results
+}
+
+// GetLongURL returns the long URL for a code, or empty string if not found.
+func (s *Service) GetLongURL(ctx context.Context, code string) (string, error) {
+	link, err := s.store.GetLink(ctx, code)
+	if err != nil {
+		return "", err
+	}
+	if link == nil {
+		return "", nil
+	}
+	return link.LongURL, nil
+}

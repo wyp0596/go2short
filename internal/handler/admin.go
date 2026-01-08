@@ -11,25 +11,28 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/wyp0596/go2short/internal/cache"
 	"github.com/wyp0596/go2short/internal/config"
+	"github.com/wyp0596/go2short/internal/link"
 	"github.com/wyp0596/go2short/internal/middleware"
 	"github.com/wyp0596/go2short/internal/store"
 )
 
 type AdminHandler struct {
-	store   *store.Store
-	cache   *cache.Cache
-	auth    *middleware.AuthMiddleware
-	cfg     *config.Config
-	baseURL string
+	store       *store.Store
+	cache       *cache.Cache
+	auth        *middleware.AuthMiddleware
+	cfg         *config.Config
+	baseURL     string
+	linkService *link.Service
 }
 
-func NewAdminHandler(s *store.Store, c *cache.Cache, auth *middleware.AuthMiddleware, cfg *config.Config) *AdminHandler {
+func NewAdminHandler(s *store.Store, c *cache.Cache, auth *middleware.AuthMiddleware, cfg *config.Config, ls *link.Service) *AdminHandler {
 	return &AdminHandler{
-		store:   s,
-		cache:   c,
-		auth:    auth,
-		cfg:     cfg,
-		baseURL: cfg.BaseURL,
+		store:       s,
+		cache:       c,
+		auth:        auth,
+		cfg:         cfg,
+		baseURL:     cfg.BaseURL,
+		linkService: ls,
 	}
 }
 
@@ -95,6 +98,66 @@ type linksResponse struct {
 	Total int            `json:"total"`
 	Page  int            `json:"page"`
 	Limit int            `json:"limit"`
+}
+
+type adminCreateLinkRequest struct {
+	LongURL    string  `json:"long_url" binding:"required"`
+	ExpiresAt  *string `json:"expires_at,omitempty"`
+	CustomCode *string `json:"custom_code,omitempty"`
+}
+
+// CreateLink creates a new short link.
+func (h *AdminHandler) CreateLink(c *gin.Context) {
+	var req adminCreateLinkRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	var expiresAt *time.Time
+	if req.ExpiresAt != nil {
+		t, err := time.Parse(time.RFC3339, *req.ExpiresAt)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid expires_at format"})
+			return
+		}
+		expiresAt = &t
+	}
+
+	customCode := ""
+	if req.CustomCode != nil {
+		customCode = *req.CustomCode
+	}
+
+	result, err := h.linkService.Create(c.Request.Context(), &link.CreateRequest{
+		LongURL:    req.LongURL,
+		ExpiresAt:  expiresAt,
+		CustomCode: customCode,
+	})
+
+	if err != nil {
+		switch err {
+		case link.ErrInvalidURL:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid URL (http/https only)"})
+		case link.ErrURLTooLong:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "URL too long (max 2048)"})
+		case link.ErrBlockedIP:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "URL points to private IP"})
+		case link.ErrCodeTaken:
+			c.JSON(http.StatusConflict, gin.H{"error": "custom code already taken"})
+		case link.ErrInvalidCode:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid custom code (6-12 chars, base62)"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"code":       result.Code,
+		"short_url":  h.baseURL + "/" + result.Code,
+		"created_at": result.CreatedAt.Format(time.RFC3339),
+	})
 }
 
 // ListLinks returns paginated links.

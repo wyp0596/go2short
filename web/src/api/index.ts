@@ -36,7 +36,7 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       removeToken()
-      window.location.href = '/login'
+      window.location.href = '/admin/login'
     }
     return Promise.reject(error)
   }
@@ -97,10 +97,10 @@ export async function getLinks(page = 1, limit = 20, search = ''): Promise<Links
 }
 
 export async function createLink(longUrl: string, customCode?: string, expiresAt?: string): Promise<{ short_url: string }> {
-  const payload: Record<string, string> = { url: longUrl }
+  const payload: Record<string, string> = { long_url: longUrl }
   if (customCode) payload.custom_code = customCode
   if (expiresAt) payload.expires_at = expiresAt
-  const { data } = await api.post('/links', payload)
+  const { data } = await api.post('/admin/links', payload)
   return data
 }
 

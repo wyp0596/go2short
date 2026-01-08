@@ -20,6 +20,10 @@ const formExpires = ref('')
 const formError = ref('')
 const formLoading = ref(false)
 
+const showQRModal = ref(false)
+const qrCode = ref('')
+const qrUrl = ref('')
+
 async function loadLinks() {
   loading.value = true
   try {
@@ -104,6 +108,19 @@ const totalPages = () => Math.ceil(total.value / limit.value)
 function formatDate(date: string) {
   return new Date(date).toLocaleString()
 }
+
+function showQR(link: Link) {
+  qrCode.value = link.code
+  qrUrl.value = link.short_url
+  showQRModal.value = true
+}
+
+function downloadQR() {
+  const link = document.createElement('a')
+  link.href = `/${qrCode.value}/qr?size=512`
+  link.download = `${qrCode.value}-qr.png`
+  link.click()
+}
 </script>
 
 <template>
@@ -170,6 +187,7 @@ function formatDate(date: string) {
               </span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+              <button @click="showQR(link)" class="text-purple-600 hover:text-purple-900">QR</button>
               <button @click="viewStats(link.code)" class="text-blue-600 hover:text-blue-900">Stats</button>
               <button @click="openEdit(link)" class="text-gray-600 hover:text-gray-900">Edit</button>
               <button @click="handleToggleDisable(link)" class="text-yellow-600 hover:text-yellow-900">
@@ -254,6 +272,30 @@ function formatDate(date: string) {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- QR Code Modal -->
+    <div v-if="showQRModal" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg shadow-xl max-w-sm w-full mx-4">
+        <div class="px-6 py-4 border-b flex justify-between items-center">
+          <h3 class="text-lg font-medium text-gray-900">QR Code</h3>
+          <button @click="showQRModal = false" class="text-gray-400 hover:text-gray-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="px-6 py-6 flex flex-col items-center">
+          <img :src="`/${qrCode}/qr?size=256`" :alt="`QR code for ${qrCode}`" class="w-64 h-64" />
+          <p class="mt-4 text-sm text-gray-600 break-all text-center">{{ qrUrl }}</p>
+          <button
+            @click="downloadQR"
+            class="mt-4 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+          >
+            Download
+          </button>
+        </div>
       </div>
     </div>
   </div>
