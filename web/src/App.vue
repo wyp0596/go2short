@@ -39,6 +39,13 @@ function logout() {
               >
                 Links
               </router-link>
+              <router-link
+                to="/tokens"
+                class="px-3 py-2 rounded-md text-sm font-medium"
+                :class="route.name === 'tokens' ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:text-gray-900'"
+              >
+                API Tokens
+              </router-link>
             </div>
           </div>
           <div class="flex items-center">

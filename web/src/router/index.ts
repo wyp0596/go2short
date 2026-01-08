@@ -27,6 +27,12 @@ const router = createRouter({
       component: () => import('../views/LinkStats.vue'),
       meta: { requiresAuth: true },
     },
+    {
+      path: '/tokens',
+      name: 'tokens',
+      component: () => import('../views/Tokens.vue'),
+      meta: { requiresAuth: true },
+    },
   ],
 })
 

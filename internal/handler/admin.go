@@ -294,3 +294,91 @@ func (h *AdminHandler) GetClickTrend(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"trend": trend})
 }
+
+type createTokenRequest struct {
+	Name string `json:"name" binding:"required"`
+}
+
+type createTokenResponse struct {
+	ID    int    `json:"id"`
+	Name  string `json:"name"`
+	Token string `json:"token"`
+}
+
+// CreateAPIToken creates a new API token and returns the plaintext token (only once).
+func (h *AdminHandler) CreateAPIToken(c *gin.Context) {
+	var req createTokenRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
+		return
+	}
+
+	// Generate random token
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
+		return
+	}
+	token := hex.EncodeToString(b)
+	tokenHash := middleware.HashToken(token)
+
+	id, err := h.store.CreateAPIToken(c.Request.Context(), tokenHash, req.Name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create token"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, createTokenResponse{
+		ID:    id,
+		Name:  req.Name,
+		Token: token,
+	})
+}
+
+type apiTokenResponse struct {
+	ID         int        `json:"id"`
+	Name       string     `json:"name"`
+	CreatedAt  time.Time  `json:"created_at"`
+	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
+}
+
+// ListAPITokens returns all API tokens (without token values).
+func (h *AdminHandler) ListAPITokens(c *gin.Context) {
+	tokens, err := h.store.ListAPITokens(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list tokens"})
+		return
+	}
+
+	resp := make([]apiTokenResponse, 0, len(tokens))
+	for _, t := range tokens {
+		r := apiTokenResponse{
+			ID:        t.ID,
+			Name:      t.Name,
+			CreatedAt: t.CreatedAt,
+		}
+		if t.LastUsedAt.Valid {
+			r.LastUsedAt = &t.LastUsedAt.Time
+		}
+		resp = append(resp, r)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"tokens": resp})
+}
+
+// DeleteAPIToken removes an API token.
+func (h *AdminHandler) DeleteAPIToken(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid token id"})
+		return
+	}
+
+	err = h.store.DeleteAPIToken(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "token not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "token deleted"})
+}

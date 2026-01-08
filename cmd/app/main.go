@@ -52,6 +52,7 @@ func main() {
 
 	// Initialize admin
 	authMiddleware := middleware.NewAuthMiddleware(c.Client(), cfg.RedisKeyPrefix)
+	apiTokenMiddleware := middleware.NewAPITokenMiddleware(s)
 	adminHandler := handler.NewAdminHandler(s, c, authMiddleware, cfg)
 
 	// Start click event consumer
@@ -90,7 +91,7 @@ func main() {
 
 	// API routes
 	api := r.Group("/api")
-	api.POST("/links", linkHandler.Create)
+	api.POST("/links", apiTokenMiddleware.RequireAPIToken(), linkHandler.Create)
 
 	// Admin routes
 	admin := api.Group("/admin")
@@ -107,6 +108,9 @@ func main() {
 	adminAuth.GET("/stats/overview", adminHandler.GetOverviewStats)
 	adminAuth.GET("/stats/top-links", adminHandler.GetTopLinks)
 	adminAuth.GET("/stats/trend", adminHandler.GetClickTrend)
+	adminAuth.POST("/tokens", adminHandler.CreateAPIToken)
+	adminAuth.GET("/tokens", adminHandler.ListAPITokens)
+	adminAuth.DELETE("/tokens/:id", adminHandler.DeleteAPIToken)
 
 	// Serve embedded frontend
 	distFS, _ := fs.Sub(web.DistFS, "dist")

@@ -332,3 +332,81 @@ func (s *Store) GetClickTrend(ctx context.Context, days int) ([]DayClick, error)
 	}
 	return trend, rows.Err()
 }
+
+// APIToken represents an API token for external access.
+type APIToken struct {
+	ID         int
+	TokenHash  string
+	Name       string
+	CreatedAt  time.Time
+	LastUsedAt sql.NullTime
+	Disabled   bool
+}
+
+// CreateAPIToken inserts a new API token. Returns the ID.
+func (s *Store) CreateAPIToken(ctx context.Context, tokenHash, name string) (int, error) {
+	var id int
+	err := s.db.QueryRowContext(ctx,
+		`INSERT INTO api_tokens (token_hash, name) VALUES ($1, $2) RETURNING id`,
+		tokenHash, name,
+	).Scan(&id)
+	return id, err
+}
+
+// GetAPITokenByHash returns token by hash. Returns nil if not found or disabled.
+func (s *Store) GetAPITokenByHash(ctx context.Context, tokenHash string) (*APIToken, error) {
+	var t APIToken
+	err := s.db.QueryRowContext(ctx,
+		`SELECT id, token_hash, name, created_at, last_used_at, disabled
+		 FROM api_tokens WHERE token_hash = $1 AND disabled = false`,
+		tokenHash,
+	).Scan(&t.ID, &t.TokenHash, &t.Name, &t.CreatedAt, &t.LastUsedAt, &t.Disabled)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+// UpdateAPITokenLastUsed updates last_used_at timestamp.
+func (s *Store) UpdateAPITokenLastUsed(ctx context.Context, id int) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE api_tokens SET last_used_at = NOW() WHERE id = $1`, id)
+	return err
+}
+
+// ListAPITokens returns all API tokens.
+func (s *Store) ListAPITokens(ctx context.Context) ([]APIToken, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, token_hash, name, created_at, last_used_at, disabled
+		 FROM api_tokens ORDER BY created_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tokens []APIToken
+	for rows.Next() {
+		var t APIToken
+		if err := rows.Scan(&t.ID, &t.TokenHash, &t.Name, &t.CreatedAt, &t.LastUsedAt, &t.Disabled); err != nil {
+			return nil, err
+		}
+		tokens = append(tokens, t)
+	}
+	return tokens, rows.Err()
+}
+
+// DeleteAPIToken removes an API token.
+func (s *Store) DeleteAPIToken(ctx context.Context, id int) error {
+	result, err := s.db.ExecContext(ctx, `DELETE FROM api_tokens WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	n, _ := result.RowsAffected()
+	if n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}

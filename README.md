@@ -19,11 +19,18 @@ docker compose up -d --build
 # Admin dashboard
 open http://localhost:8080/admin/
 # Default login: admin / admin123
+```
 
-# Create a short link (API)
+### Create Short Links via API
+
+API access requires an API Token. Create one in the admin dashboard (API Tokens page), then:
+
+```bash
+# Create a short link
 curl -X POST http://localhost:8080/api/links \
+  -H "Authorization: Bearer YOUR_API_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"url": "https://example.com/very/long/path"}'
+  -d '{"long_url": "https://example.com/very/long/path"}'
 
 # Use it
 curl -L http://localhost:8080/{code}
@@ -87,12 +94,21 @@ See [docs/Project.md](docs/Project.md) for full configuration.
 GET /:code → 302 redirect
 ```
 
-### Create Link
+### Create Link (requires API Token)
 ```
 POST /api/links
+Authorization: Bearer <api_token>
+
 {"long_url": "https://..."}
 
 → {"code": "abc123", "short_url": "https://go2.sh/abc123"}
+```
+
+### API Token Management (Admin)
+```
+POST   /api/admin/tokens     → Create token (returns plaintext once)
+GET    /api/admin/tokens     → List tokens
+DELETE /api/admin/tokens/:id → Delete token
 ```
 
 ## Documentation

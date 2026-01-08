@@ -19,11 +19,18 @@ docker compose up -d --build
 # 管理后台
 open http://localhost:8080/admin/
 # 默认账号：admin / admin123
+```
 
-# 创建短链（API）
+### 通过 API 创建短链
+
+API 访问需要 API Token。在管理后台的「API Tokens」页面创建，然后：
+
+```bash
+# 创建短链
 curl -X POST http://localhost:8080/api/links \
+  -H "Authorization: Bearer YOUR_API_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"url": "https://example.com/very/long/path"}'
+  -d '{"long_url": "https://example.com/very/long/path"}'
 
 # 使用
 curl -L http://localhost:8080/{code}
@@ -87,12 +94,21 @@ go build -o go2short ./cmd/app
 GET /:code → 302 跳转
 ```
 
-### 创建短链
+### 创建短链（需要 API Token）
 ```
 POST /api/links
+Authorization: Bearer <api_token>
+
 {"long_url": "https://..."}
 
 → {"code": "abc123", "short_url": "https://go2.sh/abc123"}
+```
+
+### API Token 管理（管理员）
+```
+POST   /api/admin/tokens     → 创建 token（明文仅返回一次）
+GET    /api/admin/tokens     → 列出所有 token
+DELETE /api/admin/tokens/:id → 删除 token
 ```
 
 ## 文档

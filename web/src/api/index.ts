@@ -139,3 +139,31 @@ export async function getClickTrend(days = 30): Promise<{ trend: DayClick[] }> {
   const { data } = await api.get<{ trend: DayClick[] }>('/admin/stats/trend', { params: { days } })
   return data
 }
+
+// API Tokens
+export interface APIToken {
+  id: number
+  name: string
+  created_at: string
+  last_used_at?: string
+}
+
+export interface CreateTokenResponse {
+  id: number
+  name: string
+  token: string
+}
+
+export async function getAPITokens(): Promise<{ tokens: APIToken[] }> {
+  const { data } = await api.get<{ tokens: APIToken[] }>('/admin/tokens')
+  return data
+}
+
+export async function createAPIToken(name: string): Promise<CreateTokenResponse> {
+  const { data } = await api.post<CreateTokenResponse>('/admin/tokens', { name })
+  return data
+}
+
+export async function deleteAPIToken(id: number): Promise<void> {
+  await api.delete(`/admin/tokens/${id}`)
+}

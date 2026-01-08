@@ -104,6 +104,18 @@ CREATE TABLE click_events (
 
 -- Index for aggregation queries
 CREATE INDEX idx_clicks_code_ts ON click_events (code, ts);
+
+-- api_tokens: external API access
+CREATE TABLE api_tokens (
+    id           SERIAL PRIMARY KEY,
+    token_hash   VARCHAR(64) NOT NULL UNIQUE,
+    name         VARCHAR(100) NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_used_at TIMESTAMPTZ,
+    disabled     BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE INDEX idx_api_tokens_hash ON api_tokens (token_hash) WHERE NOT disabled;
 ```
 
 ### Redis Keys
@@ -189,13 +201,16 @@ Disabled/Expired: 410
 
 ### Create Link
 
+Requires API Token authentication.
+
 ```
 POST /api/links
+Authorization: Bearer <api_token>
 Content-Type: application/json
 
 Request:
 {
-  "url": "https://example.com/very/long/path",
+  "long_url": "https://example.com/very/long/path",
   "expires_at": "2024-12-31T23:59:59Z",  // optional
   "custom_code": "mycode"                 // optional
 }
@@ -212,6 +227,11 @@ Response: 201 Created
 - URL: http/https only, max 2048 chars
 - Code: base62, 6-12 chars
 - Block internal IPs (SSRF prevention)
+
+**Authentication**:
+- `Authorization: Bearer <token>` header
+- Or `X-API-Key: <token>` header
+- Tokens created via admin API, stored as SHA256 hash
 
 ### Admin API
 
@@ -244,6 +264,16 @@ Response: {"total_clicks": 100, "daily_clicks": [{"date": "2024-01-01", "clicks"
 
 GET /api/admin/stats/overview
 Response: {"total_links": 50, "active_links": 45, "total_clicks": 1000, "today_clicks": 100}
+
+POST /api/admin/tokens
+Request:  {"name": "my-app"}
+Response: {"id": 1, "name": "my-app", "token": "plaintext-token-only-shown-once"}
+
+GET /api/admin/tokens
+Response: {"tokens": [{"id": 1, "name": "my-app", "created_at": "...", "last_used_at": "..."}]}
+
+DELETE /api/admin/tokens/:id
+Response: {"message": "token deleted"}
 ```
 
 ---
@@ -350,7 +380,7 @@ go2short/
 │   ├── src/
 │   │   ├── api/          # API client
 │   │   ├── router/       # Vue Router
-│   │   ├── views/        # Login, Dashboard, Links, LinkStats
+│   │   ├── views/        # Login, Dashboard, Links, LinkStats, Tokens
 │   │   └── components/
 │   ├── embed.go          # go:embed directive
 │   └── dist/             # built assets (embedded into binary)
