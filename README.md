@@ -110,7 +110,7 @@ Authorization: Bearer <api_token>
 
 {"long_url": "https://...", "custom_code": "mycode", "expires_at": "2025-12-31T23:59:59Z"}
 
-→ {"code": "abc123", "short_url": "https://go2.sh/abc123", "created_at": "..."}
+→ {"code": "abc123", "short_url": "https://go2short.go2f.cn/abc123", "created_at": "..."}
 ```
 
 ### Batch Create (requires API Token)
