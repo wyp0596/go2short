@@ -94,15 +94,46 @@ go build -o go2short ./cmd/app
 GET /:code → 302 跳转
 ```
 
+### 二维码
+```
+GET /:code/qr?size=256 → PNG 图片
+
+# size: 128-1024（默认 256）
+```
+
 ### 创建短链（需要 API Token）
 ```
 POST /api/links
 Authorization: Bearer <api_token>
 
-{"long_url": "https://..."}
+{"long_url": "https://...", "custom_code": "mycode", "expires_at": "2025-12-31T23:59:59Z"}
 
-→ {"code": "abc123", "short_url": "https://go2.sh/abc123"}
+→ {"code": "abc123", "short_url": "https://go2.sh/abc123", "created_at": "..."}
 ```
+
+### 批量创建（需要 API Token）
+```
+POST /api/links/batch
+Authorization: Bearer <api_token>
+
+{"items": [{"long_url": "https://..."}, {"long_url": "https://...", "custom_code": "foo"}]}
+
+→ {"results": [{"index": 0, "code": "abc123", "short_url": "..."}, ...]}
+
+# 单次最多 100 条
+```
+
+### 短链预览（需要 API Token）
+```
+GET /api/links/:code/preview
+Authorization: Bearer <api_token>
+
+→ {"code": "abc123", "long_url": "https://..."}
+```
+
+### 频率限制
+- 创建接口：60 次/分钟/IP
+- 响应头：`X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
 
 ### API Token 管理（管理员）
 ```

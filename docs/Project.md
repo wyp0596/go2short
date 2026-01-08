@@ -1,6 +1,7 @@
-# go2short - Architecture & Specification
+# Architecture & Internals
 
-> A minimal, high-performance URL shortener. Container-ready, horizontally scalable.
+> Deep dive into go2short's design decisions and implementation details.
+> For quick start, see [README](../README.md).
 
 ---
 
@@ -9,11 +10,10 @@
 1. **Redirect path is sacred** - Zero sync DB writes, minimal middleware
 2. **Simple > Clever** - No over-abstraction, no premature optimization
 3. **Explicit > Magic** - Configuration via env, no hidden behavior
-4. **Observability built-in** - Metrics and structured logs from day one
 
 ---
 
-## Architecture Overview
+## Architecture
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
@@ -24,11 +24,10 @@
                            ▼
                     ┌─────────────┐
                     │  Postgres   │
-                    │   (Data)    │
                     └─────────────┘
 ```
 
-**Single binary MVP**: App process includes redirect handler + click event consumer goroutine.
+**Single binary**: App includes redirect handler + click event consumer goroutine.
 
 ---
 
@@ -39,28 +38,25 @@ GET /:code
     │
     ▼
 ┌─────────────────────────────┐
-│ 1. Validate code (length,   │
-│    charset: base62)         │
+│ 1. Validate code (base62)   │
 ├─────────────────────────────┤
 │ 2. Redis GET su:link:{code} │──▶ HIT ──▶ 302 + async enqueue
 ├─────────────────────────────┤
 │ 3. MISS: Check negative     │
 │    cache su:miss:{code}     │──▶ HIT ──▶ 404
 ├─────────────────────────────┤
-│ 4. Query Postgres links     │
-│    WHERE code = ?           │
+│ 4. Query Postgres           │
 ├─────────────────────────────┤
-│ 5. Found: backfill Redis,   │
-│    return 302               │
+│ 5. Found: backfill Redis    │
 │    Not found: set negative  │
-│    cache, return 404        │
+│    cache                    │
 ├─────────────────────────────┤
 │ 6. Enqueue click event      │
 │    (non-blocking)           │
 └─────────────────────────────┘
 ```
 
-### Hard Rules (Non-Negotiable)
+### Hard Rules
 
 | Forbidden in redirect path | Why |
 |---------------------------|-----|
@@ -71,7 +67,7 @@ GET /:code
 
 ### Performance Targets
 
-- P50 latency: < 5ms (app only, excludes network)
+- P50 latency: < 5ms (app only)
 - Redis hit rate: > 95%
 - Zero sync writes on redirect
 
@@ -82,7 +78,6 @@ GET /:code
 ### Postgres
 
 ```sql
--- links: source of truth
 CREATE TABLE links (
     code        TEXT PRIMARY KEY,
     long_url    TEXT NOT NULL,
@@ -91,7 +86,6 @@ CREATE TABLE links (
     is_disabled BOOLEAN NOT NULL DEFAULT FALSE
 );
 
--- click_events: partitioned by time
 CREATE TABLE click_events (
     id          BIGSERIAL,
     code        TEXT NOT NULL,
@@ -102,10 +96,8 @@ CREATE TABLE click_events (
     PRIMARY KEY (id, ts)
 ) PARTITION BY RANGE (ts);
 
--- Index for aggregation queries
 CREATE INDEX idx_clicks_code_ts ON click_events (code, ts);
 
--- api_tokens: external API access
 CREATE TABLE api_tokens (
     id           SERIAL PRIMARY KEY,
     token_hash   VARCHAR(64) NOT NULL UNIQUE,
@@ -122,165 +114,37 @@ CREATE INDEX idx_api_tokens_hash ON api_tokens (token_hash) WHERE NOT disabled;
 
 | Key Pattern | Type | TTL | Purpose |
 |-------------|------|-----|---------|
-| `su:link:{code}` | string | none/LRU | URL cache |
+| `su:link:{code}` | string | LRU | URL cache |
 | `su:miss:{code}` | string | 60s | Negative cache |
 | `su:clicks` | stream | - | Click event queue |
+| `su:ratelimit:{ip}` | string | 60s | Rate limit counter |
 
 ---
 
 ## Code Generation
 
-**Strategy**: Random base62 + unique constraint retry
+Random base62 + unique constraint retry (max 3 attempts):
 
 ```go
 const charset = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-const codeLen = 8 // configurable
-
-func generateCode() string {
-    b := make([]byte, codeLen)
-    for i := range b {
-        b[i] = charset[rand.Intn(len(charset))]
-    }
-    return string(b)
-}
 ```
-
-On unique constraint violation: retry (max 3 attempts).
 
 ---
 
 ## Async Click Processing
 
 ```
-┌──────────┐    XADD    ┌──────────┐   batch   ┌──────────┐
-│ Redirect │──────────▶│  Redis   │──────────▶│ Consumer │
-│ Handler  │           │ Streams  │           │ Goroutine│
-└──────────┘           └──────────┘           └────┬─────┘
-                                                   │
-                                              bulk insert
-                                                   │
-                                                   ▼
-                                            ┌──────────┐
-                                            │ Postgres │
-                                            └──────────┘
-```
-
-**Event payload** (JSON):
-```json
-{
-  "code": "abc123",
-  "ts": "2024-01-01T00:00:00Z",
-  "ip_hash": "sha256...",
-  "ua_hash": "sha256...",
-  "referer": "https://...",
-  "req_id": "uuid"
-}
+Redirect ──XADD──▶ Redis Streams ──batch──▶ Consumer ──bulk insert──▶ Postgres
 ```
 
 **Consumer behavior**:
 - Batch size: 500 events
-- Flush interval: 200ms (whichever comes first)
+- Flush interval: 200ms
 - At-least-once delivery
-- Failed events: log + optional DLQ stream
 
 ---
 
-## API Specification
-
-### Redirect
-
-```
-GET /:code
-
-Success: 302 Found
-Location: {long_url}
-
-Not found: 404
-Disabled/Expired: 410
-```
-
-### Create Link
-
-Requires API Token authentication.
-
-```
-POST /api/links
-Authorization: Bearer <api_token>
-Content-Type: application/json
-
-Request:
-{
-  "long_url": "https://example.com/very/long/path",
-  "expires_at": "2024-12-31T23:59:59Z",  // optional
-  "custom_code": "mycode"                 // optional
-}
-
-Response: 201 Created
-{
-  "code": "abc123",
-  "short_url": "https://go2.sh/abc123",
-  "created_at": "2024-01-01T00:00:00Z"
-}
-```
-
-**Validation**:
-- URL: http/https only, max 2048 chars
-- Code: base62, 6-12 chars
-- Block internal IPs (SSRF prevention)
-
-**Authentication**:
-- `Authorization: Bearer <token>` header
-- Or `X-API-Key: <token>` header
-- Tokens created via admin API, stored as SHA256 hash
-
-### Admin API
-
-All admin endpoints require `Authorization: Bearer <token>` header (except login).
-
-```
-POST /api/admin/login
-Request:  {"username": "admin", "password": "xxx"}
-Response: {"token": "..."}
-
-POST /api/admin/logout
-Response: {"message": "logged out"}
-
-GET /api/admin/links?page=1&limit=20&search=keyword
-Response: {"links": [...], "total": 100, "page": 1, "limit": 20}
-
-PUT /api/admin/links/:code
-Request:  {"long_url": "https://...", "expires_at": "2024-12-31T23:59:59Z"}
-Response: {"message": "link updated"}
-
-DELETE /api/admin/links/:code
-Response: {"message": "link deleted"}
-
-PATCH /api/admin/links/:code/disable
-Request:  {"disabled": true}
-Response: {"message": "link updated"}
-
-GET /api/admin/links/:code/stats?days=30
-Response: {"total_clicks": 100, "daily_clicks": [{"date": "2024-01-01", "clicks": 10}, ...]}
-
-GET /api/admin/stats/overview
-Response: {"total_links": 50, "active_links": 45, "total_clicks": 1000, "today_clicks": 100}
-
-POST /api/admin/tokens
-Request:  {"name": "my-app"}
-Response: {"id": 1, "name": "my-app", "token": "plaintext-token-only-shown-once"}
-
-GET /api/admin/tokens
-Response: {"tokens": [{"id": 1, "name": "my-app", "created_at": "...", "last_used_at": "..."}]}
-
-DELETE /api/admin/tokens/:id
-Response: {"message": "token deleted"}
-```
-
----
-
-## Configuration
-
-All via environment variables:
+## Full Configuration
 
 ```bash
 # Server
@@ -288,7 +152,7 @@ HTTP_ADDR=:8080
 HTTP_READ_TIMEOUT=5s
 HTTP_WRITE_TIMEOUT=5s
 
-# Redirect behavior
+# Redirect
 REDIRECT_STATUS_CODE=302
 CODE_LENGTH=8
 
@@ -314,6 +178,10 @@ WORKER_FLUSH_INTERVAL=200ms
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=admin123
 ADMIN_TOKEN_TTL=24h
+
+# Rate Limiting
+RATE_LIMIT_REQUESTS=60
+RATE_LIMIT_WINDOW=60s
 ```
 
 ---
@@ -323,39 +191,16 @@ ADMIN_TOKEN_TTL=24h
 ### Metrics (Prometheus)
 
 ```
-# Redirect
 redirect_requests_total{status="302|404|410"}
 redirect_latency_seconds_bucket{le="0.005|0.01|0.05|0.1"}
-
-# Cache
 cache_hits_total
 cache_misses_total
-
-# Database
-db_queries_total{operation="select|insert"}
-db_latency_seconds_bucket
-
-# Worker
-click_events_enqueued_total
 click_events_processed_total
-stream_lag_messages
 ```
 
 ### Logging
 
-Structured JSON, sampled on redirect path:
-
-```json
-{
-  "level": "info",
-  "ts": "2024-01-01T00:00:00Z",
-  "req_id": "uuid",
-  "path": "/abc123",
-  "status": 302,
-  "latency_ms": 2,
-  "cache": "hit"
-}
-```
+Structured JSON, sampled on redirect path.
 
 ---
 
@@ -363,55 +208,30 @@ Structured JSON, sampled on redirect path:
 
 ```
 go2short/
-├── cmd/
-│   └── app/              # main.go (single binary with embedded frontend)
+├── cmd/app/           # main.go
 ├── internal/
-│   ├── config/           # env loading
-│   ├── handler/          # HTTP handlers (redirect, link, admin)
-│   ├── redirect/         # redirect logic (performance critical)
-│   ├── link/             # link CRUD
-│   ├── cache/            # Redis operations
-│   ├── store/            # Postgres operations
-│   ├── events/           # stream producer/consumer
-│   ├── middleware/       # auth, logging
-│   └── metrics/          # Prometheus collectors
-├── migrations/           # SQL migrations
-├── web/                  # Vue 3 admin dashboard
-│   ├── src/
-│   │   ├── api/          # API client
-│   │   ├── router/       # Vue Router
-│   │   ├── views/        # Login, Dashboard, Links, LinkStats, Tokens
-│   │   └── components/
-│   ├── embed.go          # go:embed directive
-│   └── dist/             # built assets (embedded into binary)
-├── docs/
-└── docker-compose.yml
+│   ├── config/        # env loading
+│   ├── handler/       # HTTP handlers
+│   ├── redirect/      # redirect logic (perf critical)
+│   ├── link/          # link CRUD
+│   ├── cache/         # Redis operations
+│   ├── store/         # Postgres operations
+│   ├── events/        # stream producer/consumer
+│   └── middleware/    # auth, rate limiting
+├── migrations/        # SQL migrations
+├── web/               # Vue 3 admin (embedded)
+└── docs/
 ```
-
-### Build & Deploy
-
-```bash
-# Build frontend
-cd web && npm install && npm run build && cd ..
-
-# Build single binary (includes embedded frontend)
-go build -o go2short ./cmd/app
-
-# Or use Docker (multi-stage build)
-docker compose up -d --build
-```
-
-**Access admin dashboard**: `http://localhost:8080/admin/`
 
 ---
 
-## Security Checklist
+## Security
 
 - [x] URL validation: http/https only
-- [x] Block private IP ranges (10.x, 172.16-31.x, 192.168.x)
+- [x] Block private IP ranges (SSRF prevention)
 - [x] Hash IP/UA before storage
-- [x] Admin API behind auth (token-based)
-- [ ] Rate limiting at gateway
+- [x] API Token auth (SHA256 hashed)
+- [x] Rate limiting
 - [x] No secrets in logs
 
 ---
@@ -422,16 +242,14 @@ docker compose up -d --build
 - No multi-tenancy
 - No sharding
 - No real-time analytics in redirect path
-- No complex fraud detection (async only)
 
 ---
 
 ## Review Checklist
 
-Before merging any redirect-path change:
+Before merging redirect-path changes:
 
-1. Does it add sync DB write? **REJECT**
-2. Does it add external call? **REJECT**
-3. Is negative cache handled? **REQUIRED**
-4. Are metrics updated? **REQUIRED**
-5. Is the change under 50 lines? **PREFERRED**
+1. Sync DB write? **REJECT**
+2. External call? **REJECT**
+3. Negative cache handled? **REQUIRED**
+4. Metrics updated? **REQUIRED**
