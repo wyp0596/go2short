@@ -151,8 +151,6 @@ DELETE /api/admin/tokens/:id → Delete token
 
 ## Deploy to Railway
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template)
-
 1. Create a new project on [Railway](https://railway.app)
 2. Add **PostgreSQL** and **Redis** services
 3. Add your app from GitHub repo

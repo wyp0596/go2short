@@ -151,8 +151,6 @@ DELETE /api/admin/tokens/:id → 删除 token
 
 ## 部署到 Railway
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template)
-
 1. 在 [Railway](https://railway.app) 创建新项目
 2. 添加 **PostgreSQL** 和 **Redis** 服务
 3. 从 GitHub 仓库添加应用
