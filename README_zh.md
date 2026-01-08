@@ -77,6 +77,7 @@ go build -o go2short ./cmd/app
 | 变量 | 默认值 | 说明 |
 |-----|-------|-----|
 | `HTTP_ADDR` | `:8080` | 监听地址 |
+| `BASE_URL` | `http://localhost:8080` | 生成短链的基础 URL |
 | `REDIRECT_STATUS_CODE` | `302` | 重定向状态码 |
 | `CODE_LENGTH` | `8` | 短码长度 |
 | `REDIS_ADDR` | `localhost:6379` | Redis 地址 |
