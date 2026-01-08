@@ -149,27 +149,21 @@ DELETE /api/admin/tokens/:id → Delete token
 - [Architecture & Specification](docs/Project.md)
 - [中文文档](README_zh.md)
 
-## Deploy to Fly.io (Free)
+## Deploy to Render (Free)
 
 Prerequisites: [Neon](https://neon.tech) (free Postgres) + [Upstash](https://upstash.com) (free Redis)
 
-```bash
-# Install flyctl
-curl -L https://fly.io/install.sh | sh
+1. Fork this repo
+2. Create account on [Render](https://render.com)
+3. New → Web Service → Connect your repo
+4. Set environment variables:
+   - `DATABASE_URL` - from Neon
+   - `REDIS_URL` - from Upstash
+   - `BASE_URL` - `https://your-app.onrender.com`
+   - `ADMIN_PASSWORD` - your secure password
+5. Deploy
 
-# Login and launch
-fly auth login
-fly launch --no-deploy
-
-# Set secrets
-fly secrets set DATABASE_URL="postgres://..." \
-  REDIS_URL="redis://..." \
-  BASE_URL="https://go2short.fly.dev" \
-  ADMIN_PASSWORD="your-secure-password"
-
-# Deploy
-fly deploy
-```
+> Note: Free tier has cold start (~30s) after 15min inactivity
 
 ## Tech Stack
 
