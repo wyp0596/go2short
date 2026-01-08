@@ -1,6 +1,9 @@
 import axios from 'axios'
+import { ref } from 'vue'
 
 const TOKEN_KEY = 'go2short_token'
+
+export const tokenRef = ref<string | null>(localStorage.getItem(TOKEN_KEY))
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY)
@@ -8,10 +11,12 @@ export function getToken(): string | null {
 
 export function setToken(token: string) {
   localStorage.setItem(TOKEN_KEY, token)
+  tokenRef.value = token
 }
 
 export function removeToken() {
   localStorage.removeItem(TOKEN_KEY)
+  tokenRef.value = null
 }
 
 const api = axios.create({

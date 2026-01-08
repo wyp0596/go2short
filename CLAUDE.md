@@ -45,8 +45,10 @@
 1. 先读源码
 2. 1-2 句总结现状逻辑
 3. 说明要改哪几行/哪些函数
-4. 我说 “Do it” 才能改
+4. 我说 "Do it" 才能改
 5. 汇报改动（精确到文件/关键点）
+6. 改完后执行 `docker compose up --build -d app` 更新本地 Docker 应用（只重建 app，不动 redis/postgres）
+7. 若有 DB 结构变更，执行 `docker compose exec postgres psql -U postgres -d go2short -f /docker-entrypoint-initdb.d/xxx.sql` 应用 migration
 
 ## 自动化边界
 - 可直接修：语法/类型/拼写等低级错误

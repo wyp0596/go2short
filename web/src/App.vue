@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { getToken, removeToken } from './api'
+import { tokenRef, removeToken } from './api'
 
 const router = useRouter()
 const route = useRoute()
 
-const isLoggedIn = computed(() => !!getToken())
+const isLoggedIn = computed(() => !!tokenRef.value)
 const showNav = computed(() => isLoggedIn.value && route.name !== 'login')
 
 function logout() {
