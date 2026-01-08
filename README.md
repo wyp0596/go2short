@@ -149,6 +149,22 @@ DELETE /api/admin/tokens/:id → Delete token
 - [Architecture & Specification](docs/Project.md)
 - [中文文档](README_zh.md)
 
+## Deploy to Railway
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template)
+
+1. Create a new project on [Railway](https://railway.app)
+2. Add **PostgreSQL** and **Redis** services
+3. Add your app from GitHub repo
+4. Set environment variables:
+   ```
+   DATABASE_URL=${{Postgres.DATABASE_URL}}
+   REDIS_URL=${{Redis.REDIS_URL}}
+   BASE_URL=https://your-app.up.railway.app
+   ADMIN_PASSWORD=<your-secure-password>
+   ```
+5. Deploy
+
 ## Tech Stack
 
 - Go 1.22+ / Gin

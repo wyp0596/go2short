@@ -25,6 +25,7 @@ type Config struct {
 	CodeLength         int
 
 	// Redis
+	RedisURL         string
 	RedisAddr        string
 	RedisDialTimeout time.Duration
 	RedisRWTimeout   time.Duration
@@ -55,6 +56,7 @@ func Load() *Config {
 		AdminTokenTTL:       getDuration("ADMIN_TOKEN_TTL", 24*time.Hour),
 		RedirectStatusCode:  getInt("REDIRECT_STATUS_CODE", 302),
 		CodeLength:          getInt("CODE_LENGTH", 8),
+		RedisURL:            getEnv("REDIS_URL", ""),
 		RedisAddr:           getEnv("REDIS_ADDR", "localhost:6379"),
 		RedisDialTimeout:    getDuration("REDIS_DIAL_TIMEOUT", 200*time.Millisecond),
 		RedisRWTimeout:      getDuration("REDIS_RW_TIMEOUT", 200*time.Millisecond),

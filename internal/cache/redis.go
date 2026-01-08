@@ -16,12 +16,22 @@ type Cache struct {
 }
 
 func New(cfg *config.Config) (*Cache, error) {
-	client := redis.NewClient(&redis.Options{
-		Addr:         cfg.RedisAddr,
-		DialTimeout:  cfg.RedisDialTimeout,
-		ReadTimeout:  cfg.RedisRWTimeout,
-		WriteTimeout: cfg.RedisRWTimeout,
-	})
+	var opts *redis.Options
+	var err error
+
+	if cfg.RedisURL != "" {
+		opts, err = redis.ParseURL(cfg.RedisURL)
+		if err != nil {
+			return nil, fmt.Errorf("parse redis url: %w", err)
+		}
+	} else {
+		opts = &redis.Options{Addr: cfg.RedisAddr}
+	}
+	opts.DialTimeout = cfg.RedisDialTimeout
+	opts.ReadTimeout = cfg.RedisRWTimeout
+	opts.WriteTimeout = cfg.RedisRWTimeout
+
+	client := redis.NewClient(opts)
 
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.RedisDialTimeout)
 	defer cancel()
