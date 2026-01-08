@@ -149,19 +149,27 @@ DELETE /api/admin/tokens/:id → Delete token
 - [Architecture & Specification](docs/Project.md)
 - [中文文档](README_zh.md)
 
-## Deploy to Railway
+## Deploy to Fly.io (Free)
 
-1. Create a new project on [Railway](https://railway.app)
-2. Add **PostgreSQL** and **Redis** services
-3. Add your app from GitHub repo
-4. Set environment variables:
-   ```
-   DATABASE_URL=${{Postgres.DATABASE_URL}}
-   REDIS_URL=${{Redis.REDIS_URL}}
-   BASE_URL=https://your-app.up.railway.app
-   ADMIN_PASSWORD=<your-secure-password>
-   ```
-5. Deploy
+Prerequisites: [Neon](https://neon.tech) (free Postgres) + [Upstash](https://upstash.com) (free Redis)
+
+```bash
+# Install flyctl
+curl -L https://fly.io/install.sh | sh
+
+# Login and launch
+fly auth login
+fly launch --no-deploy
+
+# Set secrets
+fly secrets set DATABASE_URL="postgres://..." \
+  REDIS_URL="redis://..." \
+  BASE_URL="https://go2short.fly.dev" \
+  ADMIN_PASSWORD="your-secure-password"
+
+# Deploy
+fly deploy
+```
 
 ## Tech Stack
 

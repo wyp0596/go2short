@@ -1,0 +1,25 @@
+app = 'go2short'
+primary_region = 'hkg'
+
+[build]
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  memory = '256mb'
+  cpu_kind = 'shared'
+  cpus = 1
+
+[checks]
+  [checks.health]
+    type = 'http'
+    port = 8080
+    path = '/health'
+    interval = '30s'
+    timeout = '5s'

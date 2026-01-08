@@ -149,19 +149,27 @@ DELETE /api/admin/tokens/:id → 删除 token
 - [架构与规范](docs/Project.md)
 - [English](README.md)
 
-## 部署到 Railway
+## 部署到 Fly.io（免费）
 
-1. 在 [Railway](https://railway.app) 创建新项目
-2. 添加 **PostgreSQL** 和 **Redis** 服务
-3. 从 GitHub 仓库添加应用
-4. 设置环境变量：
-   ```
-   DATABASE_URL=${{Postgres.DATABASE_URL}}
-   REDIS_URL=${{Redis.REDIS_URL}}
-   BASE_URL=https://your-app.up.railway.app
-   ADMIN_PASSWORD=<your-secure-password>
-   ```
-5. 部署
+前置条件：[Neon](https://neon.tech)（免费 Postgres）+ [Upstash](https://upstash.com)（免费 Redis）
+
+```bash
+# 安装 flyctl
+curl -L https://fly.io/install.sh | sh
+
+# 登录并初始化
+fly auth login
+fly launch --no-deploy
+
+# 设置密钥
+fly secrets set DATABASE_URL="postgres://..." \
+  REDIS_URL="redis://..." \
+  BASE_URL="https://go2short.fly.dev" \
+  ADMIN_PASSWORD="your-secure-password"
+
+# 部署
+fly deploy
+```
 
 ## 技术栈
 
