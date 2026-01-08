@@ -46,7 +46,7 @@ type Config struct {
 
 func Load() *Config {
 	return &Config{
-		HTTPAddr:            getEnv("HTTP_ADDR", ":8080"),
+		HTTPAddr:            getHTTPAddr(),
 		HTTPReadTimeout:     getDuration("HTTP_READ_TIMEOUT", 5*time.Second),
 		HTTPWriteTimeout:    getDuration("HTTP_WRITE_TIMEOUT", 5*time.Second),
 		BaseURL:             getEnv("BASE_URL", "http://localhost:8080"),
@@ -70,6 +70,16 @@ func Load() *Config {
 		WorkerBatchSize:     getInt("WORKER_BATCH_SIZE", 500),
 		WorkerFlushInterval: getDuration("WORKER_FLUSH_INTERVAL", 200*time.Millisecond),
 	}
+}
+
+func getHTTPAddr() string {
+	if addr := os.Getenv("HTTP_ADDR"); addr != "" {
+		return addr
+	}
+	if port := os.Getenv("PORT"); port != "" {
+		return ":" + port
+	}
+	return ":8080"
 }
 
 func getEnv(key, defaultVal string) string {
