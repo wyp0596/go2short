@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -12,6 +13,7 @@ type Config struct {
 	HTTPReadTimeout  time.Duration
 	HTTPWriteTimeout time.Duration
 	BaseURL          string
+	TrustedProxies   []string
 
 	// Admin
 	AdminUsername string
@@ -47,6 +49,7 @@ func Load() *Config {
 		HTTPReadTimeout:     getDuration("HTTP_READ_TIMEOUT", 5*time.Second),
 		HTTPWriteTimeout:    getDuration("HTTP_WRITE_TIMEOUT", 5*time.Second),
 		BaseURL:             getEnv("BASE_URL", "http://localhost:8080"),
+		TrustedProxies:      getStringSlice("TRUSTED_PROXIES", nil),
 		AdminUsername:       getEnv("ADMIN_USERNAME", "admin"),
 		AdminPassword:       getEnv("ADMIN_PASSWORD", "admin123"),
 		AdminTokenTTL:       getDuration("ADMIN_TOKEN_TTL", 24*time.Hour),
@@ -89,6 +92,19 @@ func getInt(key string, defaultVal int) int {
 		if _, err := fmt.Sscanf(v, "%d", &n); err == nil {
 			return n
 		}
+	}
+	return defaultVal
+}
+
+func getStringSlice(key string, defaultVal []string) []string {
+	if v := os.Getenv(key); v != "" {
+		var result []string
+		for _, s := range strings.Split(v, ",") {
+			if s = strings.TrimSpace(s); s != "" {
+				result = append(result, s)
+			}
+		}
+		return result
 	}
 	return defaultVal
 }

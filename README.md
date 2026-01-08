@@ -78,6 +78,7 @@ Request → Gateway → App → Redis (cache) → Postgres (store)
 |----------|---------|-------------|
 | `HTTP_ADDR` | `:8080` | Listen address |
 | `BASE_URL` | `http://localhost:8080` | Base URL for generated short links |
+| `TRUSTED_PROXIES` | - | Trusted proxy IPs (comma-separated, e.g. `127.0.0.1,172.16.0.0/12`) |
 | `REDIRECT_STATUS_CODE` | `302` | Redirect status |
 | `CODE_LENGTH` | `8` | Generated code length |
 | `REDIS_ADDR` | `localhost:6379` | Redis connection |

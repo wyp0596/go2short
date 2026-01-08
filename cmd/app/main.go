@@ -81,6 +81,9 @@ func main() {
 	// Setup router
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
+	if len(cfg.TrustedProxies) > 0 {
+		r.SetTrustedProxies(cfg.TrustedProxies)
+	}
 	r.Use(gin.Recovery())
 	r.Use(middleware.RequestLogger())
 
