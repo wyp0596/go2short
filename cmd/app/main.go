@@ -80,6 +80,9 @@ func main() {
 	r.Use(middleware.RequestLogger())
 
 	// Routes
+	r.GET("/", func(c *gin.Context) {
+		c.Redirect(http.StatusMovedPermanently, "/admin/")
+	})
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
@@ -102,6 +105,8 @@ func main() {
 	adminAuth.PATCH("/links/:code/disable", adminHandler.SetLinkDisabled)
 	adminAuth.GET("/links/:code/stats", adminHandler.GetLinkStats)
 	adminAuth.GET("/stats/overview", adminHandler.GetOverviewStats)
+	adminAuth.GET("/stats/top-links", adminHandler.GetTopLinks)
+	adminAuth.GET("/stats/trend", adminHandler.GetClickTrend)
 
 	// Serve embedded frontend
 	distFS, _ := fs.Sub(web.DistFS, "dist")

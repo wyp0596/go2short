@@ -30,6 +30,9 @@ CREATE TABLE IF NOT EXISTS click_events_default PARTITION OF click_events DEFAUL
 -- Index for aggregation queries (code + timestamp)
 CREATE INDEX IF NOT EXISTS idx_clicks_code_ts ON click_events (code, ts);
 
+-- Index for time range queries (trend, top links)
+CREATE INDEX IF NOT EXISTS idx_clicks_ts ON click_events (ts);
+
 -- Helper function to create monthly partitions
 CREATE OR REPLACE FUNCTION create_click_partition(partition_date DATE)
 RETURNS VOID AS $$

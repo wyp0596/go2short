@@ -241,3 +241,56 @@ func (h *AdminHandler) GetOverviewStats(c *gin.Context) {
 
 	c.JSON(http.StatusOK, stats)
 }
+
+// GetTopLinks returns top links by click count.
+func (h *AdminHandler) GetTopLinks(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	days, _ := strconv.Atoi(c.DefaultQuery("days", "30"))
+	if limit < 1 || limit > 100 {
+		limit = 10
+	}
+	if days < 1 || days > 365 {
+		days = 30
+	}
+
+	links, err := h.store.GetTopLinks(c.Request.Context(), limit, days)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get top links"})
+		return
+	}
+
+	// Add short_url to response
+	type topLinkResponse struct {
+		Code       string `json:"code"`
+		ShortURL   string `json:"short_url"`
+		LongURL    string `json:"long_url"`
+		ClickCount int    `json:"click_count"`
+	}
+	resp := make([]topLinkResponse, 0, len(links))
+	for _, l := range links {
+		resp = append(resp, topLinkResponse{
+			Code:       l.Code,
+			ShortURL:   h.baseURL + "/" + l.Code,
+			LongURL:    l.LongURL,
+			ClickCount: l.ClickCount,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"links": resp})
+}
+
+// GetClickTrend returns click trend for the last N days.
+func (h *AdminHandler) GetClickTrend(c *gin.Context) {
+	days, _ := strconv.Atoi(c.DefaultQuery("days", "30"))
+	if days < 1 || days > 365 {
+		days = 30
+	}
+
+	trend, err := h.store.GetClickTrend(c.Request.Context(), days)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get trend"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"trend": trend})
+}

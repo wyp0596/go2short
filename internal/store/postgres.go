@@ -274,3 +274,61 @@ func (s *Store) GetOverviewStats(ctx context.Context) (*OverviewStats, error) {
 	}
 	return &stats, nil
 }
+
+// TopLink holds a link with its click count.
+type TopLink struct {
+	Code       string `json:"code"`
+	LongURL    string `json:"long_url"`
+	ClickCount int    `json:"click_count"`
+}
+
+// GetTopLinks returns the top N links by click count in the last N days.
+func (s *Store) GetTopLinks(ctx context.Context, limit, days int) ([]TopLink, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT l.code, l.long_url, COUNT(c.id) as clicks
+		 FROM links l
+		 LEFT JOIN click_events c ON l.code = c.code AND c.ts >= NOW() - INTERVAL '1 day' * $2
+		 GROUP BY l.code, l.long_url
+		 ORDER BY clicks DESC
+		 LIMIT $1`, limit, days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var links []TopLink
+	for rows.Next() {
+		var l TopLink
+		if err := rows.Scan(&l.Code, &l.LongURL, &l.ClickCount); err != nil {
+			return nil, err
+		}
+		links = append(links, l)
+	}
+	return links, rows.Err()
+}
+
+// GetClickTrend returns daily click counts for the last N days across all links.
+func (s *Store) GetClickTrend(ctx context.Context, days int) ([]DayClick, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT DATE(ts) as day, COUNT(*) as clicks
+		 FROM click_events
+		 WHERE ts >= NOW() - INTERVAL '1 day' * $1
+		 GROUP BY DATE(ts)
+		 ORDER BY day ASC`, days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var trend []DayClick
+	for rows.Next() {
+		var d DayClick
+		var date time.Time
+		if err := rows.Scan(&date, &d.Clicks); err != nil {
+			return nil, err
+		}
+		d.Date = date.Format("2006-01-02")
+		trend = append(trend, d)
+	}
+	return trend, rows.Err()
+}

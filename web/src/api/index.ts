@@ -122,3 +122,20 @@ export async function getOverviewStats(): Promise<OverviewStats> {
   const { data } = await api.get<OverviewStats>('/admin/stats/overview')
   return data
 }
+
+export interface TopLink {
+  code: string
+  short_url: string
+  long_url: string
+  click_count: number
+}
+
+export async function getTopLinks(limit = 10, days = 30): Promise<{ links: TopLink[] }> {
+  const { data } = await api.get<{ links: TopLink[] }>('/admin/stats/top-links', { params: { limit, days } })
+  return data
+}
+
+export async function getClickTrend(days = 30): Promise<{ trend: DayClick[] }> {
+  const { data } = await api.get<{ trend: DayClick[] }>('/admin/stats/trend', { params: { days } })
+  return data
+}

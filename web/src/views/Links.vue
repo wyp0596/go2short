@@ -95,6 +95,10 @@ function viewStats(code: string) {
   router.push(`/links/${code}/stats`)
 }
 
+function copyToClipboard(text: string) {
+  navigator.clipboard.writeText(text)
+}
+
 const totalPages = () => Math.ceil(total.value / limit.value)
 
 function formatDate(date: string) {
@@ -144,7 +148,14 @@ function formatDate(date: string) {
           </tr>
           <tr v-for="link in links" :key="link.code">
             <td class="px-6 py-4 whitespace-nowrap">
-              <a :href="link.short_url" target="_blank" class="text-blue-600 hover:text-blue-800">{{ link.code }}</a>
+              <div class="flex items-center gap-2">
+                <a :href="link.short_url" target="_blank" class="text-blue-600 hover:text-blue-800">{{ link.code }}</a>
+                <button @click="copyToClipboard(link.short_url)" class="text-gray-400 hover:text-gray-600" title="Copy short URL">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                  </svg>
+                </button>
+              </div>
             </td>
             <td class="px-6 py-4">
               <div class="max-w-xs truncate text-sm text-gray-900">{{ link.long_url }}</div>
