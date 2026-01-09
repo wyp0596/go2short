@@ -10,6 +10,9 @@ on:
 env:
   IMAGE_NAME: go2short
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
