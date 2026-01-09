@@ -1,5 +1,7 @@
 # go2short
 
+[![Docker Build](https://github.com/wyp0596/go2short/actions/workflows/docker.yml/badge.svg)](https://github.com/wyp0596/go2short/actions/workflows/docker.yml)
+
 A minimal, high-performance URL shortener built with Go.
 
 ## Features
@@ -159,7 +161,19 @@ cd go2short
 docker compose up -d
 ```
 
-### Option 2: App + External DB
+### Option 2: Use Pre-built Image
+
+```bash
+docker run -d --name go2short \
+  -p 8080:8080 \
+  -e DATABASE_URL="postgres://user:pass@your-db:5432/go2short" \
+  -e REDIS_URL="redis://:pass@your-redis:6379" \
+  -e BASE_URL="https://your-domain.com" \
+  -e ADMIN_PASSWORD="your-secure-password" \
+  wyp0596/go2short:latest
+```
+
+### Option 3: Build from Source
 
 If you have existing PostgreSQL and Redis:
 

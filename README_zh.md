@@ -1,5 +1,7 @@
 # go2short
 
+[![Docker Build](https://github.com/wyp0596/go2short/actions/workflows/docker.yml/badge.svg)](https://github.com/wyp0596/go2short/actions/workflows/docker.yml)
+
 极简高性能短链服务，Go 构建。
 
 ## 特性
@@ -159,7 +161,19 @@ cd go2short
 docker compose up -d
 ```
 
-### 方式二：应用 + 外部数据库
+### 方式二：使用预构建镜像
+
+```bash
+docker run -d --name go2short \
+  -p 8080:8080 \
+  -e DATABASE_URL="postgres://user:pass@your-db:5432/go2short" \
+  -e REDIS_URL="redis://:pass@your-redis:6379" \
+  -e BASE_URL="https://your-domain.com" \
+  -e ADMIN_PASSWORD="your-secure-password" \
+  wyp0596/go2short:latest
+```
+
+### 方式三：从源码构建
 
 如果已有 PostgreSQL 和 Redis：
 
