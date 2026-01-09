@@ -1,6 +1,10 @@
 # go2short
 
-[![Docker Build](https://github.com/wyp0596/go2short/actions/workflows/docker.yml/badge.svg)](https://github.com/wyp0596/go2short/actions/workflows/docker.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/wyp0596/go2short?style=flat-square)](https://github.com/wyp0596/go2short/releases)
+[![Docker Pulls](https://img.shields.io/docker/pulls/wyp0596/go2short?style=flat-square)](https://hub.docker.com/r/wyp0596/go2short)
+[![Docker Build](https://img.shields.io/github/actions/workflow/status/wyp0596/go2short/docker.yml?style=flat-square&label=build)](https://github.com/wyp0596/go2short/actions/workflows/docker.yml)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/wyp0596/go2short?style=flat-square)](https://go.dev/)
+[![License](https://img.shields.io/github/license/wyp0596/go2short?style=flat-square)](LICENSE)
 
 极简高性能短链服务，Go 构建。
 
