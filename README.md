@@ -149,21 +149,60 @@ DELETE /api/admin/tokens/:id → Delete token
 - [Architecture & Specification](docs/Project.md)
 - [中文文档](README_zh.md)
 
-## Deploy to Render (Free)
+## Self-Hosted Deployment
 
-Prerequisites: [Neon](https://neon.tech) (free Postgres) + [Upstash](https://upstash.com) (free Redis)
+### Option 1: Docker Compose (All-in-One)
 
-1. Fork this repo
-2. Create account on [Render](https://render.com)
-3. New → Web Service → Connect your repo
-4. Set environment variables:
-   - `DATABASE_URL` - from Neon
-   - `REDIS_URL` - from Upstash
-   - `BASE_URL` - `https://your-app.onrender.com`
-   - `ADMIN_PASSWORD` - your secure password
-5. Deploy
+```bash
+git clone https://github.com/wyp0596/go2short.git
+cd go2short
+docker compose up -d
+```
 
-> Note: Free tier has cold start (~30s) after 15min inactivity
+### Option 2: App + External DB
+
+If you have existing PostgreSQL and Redis:
+
+```bash
+# Build image
+docker build -t go2short .
+
+# Run with external services
+docker run -d --name go2short \
+  -p 8080:8080 \
+  -e DATABASE_URL="postgres://user:pass@your-db:5432/go2short" \
+  -e REDIS_URL="redis://:pass@your-redis:6379" \
+  -e BASE_URL="https://your-domain.com" \
+  -e ADMIN_PASSWORD="your-secure-password" \
+  go2short
+```
+
+### Database Setup
+
+Run migrations on your PostgreSQL:
+
+```bash
+psql -h your-db -U user -d go2short -f migrations/001_init.sql
+```
+
+### Nginx Reverse Proxy (Optional)
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name your-domain.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Remember to set `TRUSTED_PROXIES=127.0.0.1` when behind a reverse proxy
 
 ## Tech Stack
 

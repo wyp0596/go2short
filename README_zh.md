@@ -149,21 +149,60 @@ DELETE /api/admin/tokens/:id → 删除 token
 - [架构与规范](docs/Project.md)
 - [English](README.md)
 
-## 部署到 Render（免费）
+## 自托管部署
 
-前置条件：[Neon](https://neon.tech)（免费 Postgres）+ [Upstash](https://upstash.com)（免费 Redis）
+### 方式一：Docker Compose（一键启动）
 
-1. Fork 本仓库
-2. 在 [Render](https://render.com) 注册账号
-3. New → Web Service → 连接你的仓库
-4. 设置环境变量：
-   - `DATABASE_URL` - 从 Neon 获取
-   - `REDIS_URL` - 从 Upstash 获取
-   - `BASE_URL` - `https://your-app.onrender.com`
-   - `ADMIN_PASSWORD` - 你的安全密码
-5. 部署
+```bash
+git clone https://github.com/wyp0596/go2short.git
+cd go2short
+docker compose up -d
+```
 
-> 注意：免费套餐有冷启动（15 分钟无活动后约 30 秒启动延迟）
+### 方式二：应用 + 外部数据库
+
+如果已有 PostgreSQL 和 Redis：
+
+```bash
+# 构建镜像
+docker build -t go2short .
+
+# 使用外部服务运行
+docker run -d --name go2short \
+  -p 8080:8080 \
+  -e DATABASE_URL="postgres://user:pass@your-db:5432/go2short" \
+  -e REDIS_URL="redis://:pass@your-redis:6379" \
+  -e BASE_URL="https://your-domain.com" \
+  -e ADMIN_PASSWORD="your-secure-password" \
+  go2short
+```
+
+### 数据库初始化
+
+在 PostgreSQL 上执行迁移：
+
+```bash
+psql -h your-db -U user -d go2short -f migrations/001_init.sql
+```
+
+### Nginx 反向代理（可选）
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name your-domain.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+使用反向代理时记得设置 `TRUSTED_PROXIES=127.0.0.1`
 
 ## 技术栈
 
