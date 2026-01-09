@@ -1,10 +1,10 @@
 # go2short
 
-[![GitHub Release](https://img.shields.io/github/v/release/warren0596/go2short?style=flat-square)](https://github.com/warren0596/go2short/releases)
+[![GitHub Release](https://img.shields.io/github/v/release/wyp0596/go2short?style=flat-square)](https://github.com/wyp0596/go2short/releases)
 [![Docker Pulls](https://img.shields.io/docker/pulls/warren0596/go2short?style=flat-square)](https://hub.docker.com/r/warren0596/go2short)
-[![Docker Build](https://img.shields.io/github/actions/workflow/status/warren0596/go2short/docker.yml?style=flat-square&label=build)](https://github.com/warren0596/go2short/actions/workflows/docker.yml)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/warren0596/go2short?style=flat-square)](https://go.dev/)
-[![License](https://img.shields.io/github/license/warren0596/go2short?style=flat-square)](LICENSE)
+[![Docker Build](https://img.shields.io/github/actions/workflow/status/wyp0596/go2short/docker.yml?style=flat-square&label=build)](https://github.com/wyp0596/go2short/actions/workflows/docker.yml)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/wyp0596/go2short?style=flat-square)](https://go.dev/)
+[![License](https://img.shields.io/github/license/wyp0596/go2short?style=flat-square)](LICENSE)
 
 A minimal, high-performance URL shortener built with Go.
 
@@ -160,7 +160,7 @@ DELETE /api/admin/tokens/:id → Delete token
 ### Option 1: Docker Compose (All-in-One)
 
 ```bash
-git clone https://github.com/warren0596/go2short.git
+git clone https://github.com/wyp0596/go2short.git
 cd go2short
 docker compose up -d
 ```
