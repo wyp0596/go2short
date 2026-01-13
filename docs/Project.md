@@ -87,14 +87,13 @@ CREATE TABLE links (
 );
 
 CREATE TABLE click_events (
-    id          BIGSERIAL,
+    id          BIGSERIAL PRIMARY KEY,
     code        TEXT NOT NULL,
     ts          TIMESTAMPTZ NOT NULL,
     ip_hash     TEXT,
     ua_hash     TEXT,
-    referer     TEXT,
-    PRIMARY KEY (id, ts)
-) PARTITION BY RANGE (ts);
+    referer     TEXT
+);
 
 CREATE INDEX idx_clicks_code_ts ON click_events (code, ts);
 
