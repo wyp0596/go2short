@@ -87,10 +87,16 @@ func main() {
 	r.Use(gin.Recovery())
 	r.Use(middleware.RequestLogger())
 
+	// Serve embedded frontend
+	distFS, _ := fs.Sub(web.DistFS, "dist")
+	serveIndex := func(c *gin.Context) {
+		data, _ := fs.ReadFile(distFS, "index.html")
+		c.Data(http.StatusOK, "text/html; charset=utf-8", data)
+	}
+
 	// Routes
-	r.GET("/", func(c *gin.Context) {
-		c.Redirect(http.StatusMovedPermanently, "/admin/")
-	})
+	r.GET("/", serveIndex)
+	r.GET("/docs", serveIndex)
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
@@ -122,16 +128,12 @@ func main() {
 	adminAuth.GET("/tokens", adminHandler.ListAPITokens)
 	adminAuth.DELETE("/tokens/:id", adminHandler.DeleteAPIToken)
 
-	// Serve embedded frontend
-	distFS, _ := fs.Sub(web.DistFS, "dist")
-	r.GET("/admin", func(c *gin.Context) {
-		c.Redirect(http.StatusMovedPermanently, "/admin/")
-	})
-	r.GET("/admin/*filepath", func(c *gin.Context) {
-		filepath := c.Param("filepath")
-		// Try to serve the file
-		if filepath != "/" {
-			if data, err := fs.ReadFile(distFS, filepath[1:]); err == nil {
+	// Serve static assets
+	serveStatic := func(prefix string) gin.HandlerFunc {
+		return func(c *gin.Context) {
+			filepath := c.Param("filepath")
+			fullPath := prefix + filepath
+			if data, err := fs.ReadFile(distFS, fullPath); err == nil {
 				contentType := "application/octet-stream"
 				if strings.HasSuffix(filepath, ".html") {
 					contentType = "text/html; charset=utf-8"
@@ -143,11 +145,13 @@ func main() {
 				c.Data(http.StatusOK, contentType, data)
 				return
 			}
+			serveIndex(c)
 		}
-		// Fallback to index.html for SPA routing
-		data, _ := fs.ReadFile(distFS, "index.html")
-		c.Data(http.StatusOK, "text/html; charset=utf-8", data)
-	})
+	}
+
+	r.GET("/assets/*filepath", serveStatic("assets"))
+	r.GET("/admin", serveIndex)
+	r.GET("/admin/*filepath", serveIndex)
 
 	// QR code (must be before /:code)
 	r.GET("/:code/qr", linkHandler.QRCode)

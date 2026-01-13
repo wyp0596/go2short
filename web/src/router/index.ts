@@ -2,33 +2,43 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { getToken } from '../api'
 
 const router = createRouter({
-  history: createWebHistory('/admin/'),
+  history: createWebHistory('/'),
   routes: [
     {
-      path: '/login',
+      path: '/',
+      name: 'home',
+      component: () => import('../views/Home.vue'),
+    },
+    {
+      path: '/docs',
+      name: 'docs',
+      component: () => import('../views/ApiDocs.vue'),
+    },
+    {
+      path: '/admin/login',
       name: 'login',
       component: () => import('../views/Login.vue'),
     },
     {
-      path: '/',
+      path: '/admin',
       name: 'dashboard',
       component: () => import('../views/Dashboard.vue'),
       meta: { requiresAuth: true },
     },
     {
-      path: '/links',
+      path: '/admin/links',
       name: 'links',
       component: () => import('../views/Links.vue'),
       meta: { requiresAuth: true },
     },
     {
-      path: '/links/:code/stats',
+      path: '/admin/links/:code/stats',
       name: 'linkStats',
       component: () => import('../views/LinkStats.vue'),
       meta: { requiresAuth: true },
     },
     {
-      path: '/tokens',
+      path: '/admin/tokens',
       name: 'tokens',
       component: () => import('../views/Tokens.vue'),
       meta: { requiresAuth: true },
@@ -39,9 +49,9 @@ const router = createRouter({
 router.beforeEach((to, _from, next) => {
   const token = getToken()
   if (to.meta.requiresAuth && !token) {
-    next('/login')
+    next('/admin/login')
   } else if (to.name === 'login' && token) {
-    next('/')
+    next('/admin')
   } else {
     next()
   }
