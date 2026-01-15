@@ -74,9 +74,21 @@ export interface DayClick {
   clicks: number
 }
 
+export interface DistributionItem {
+  name: string
+  count: number
+}
+
+export interface DeviceStats {
+  device_type: DistributionItem[]
+  browser: DistributionItem[]
+  os: DistributionItem[]
+}
+
 export interface LinkStats {
   total_clicks: number
   daily_clicks: DayClick[]
+  device_stats: DeviceStats
 }
 
 // Super admin login
@@ -161,6 +173,11 @@ export async function getTopLinks(limit = 10, days = 30): Promise<{ links: TopLi
 
 export async function getClickTrend(days = 30): Promise<{ trend: DayClick[] }> {
   const { data } = await api.get<{ trend: DayClick[] }>('/admin/stats/trend', { params: { days } })
+  return data
+}
+
+export async function getDeviceStats(days = 30): Promise<DeviceStats> {
+  const { data } = await api.get<DeviceStats>('/admin/stats/devices', { params: { days } })
   return data
 }
 

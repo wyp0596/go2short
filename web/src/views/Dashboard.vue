@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { getOverviewStats, getTopLinks, getClickTrend, createLink, type OverviewStats, type TopLink, type DayClick } from '../api'
+import { getOverviewStats, getTopLinks, getClickTrend, getDeviceStats, createLink, type OverviewStats, type TopLink, type DayClick, type DeviceStats } from '../api'
 import { useToast } from '../composables/useToast'
 import StatCardSkeleton from '../components/StatCardSkeleton.vue'
 
@@ -9,6 +9,7 @@ const { success, error: showError } = useToast()
 const stats = ref<OverviewStats | null>(null)
 const topLinks = ref<TopLink[]>([])
 const trend = ref<DayClick[]>([])
+const deviceStats = ref<DeviceStats | null>(null)
 const loading = ref(true)
 
 // Quick create form
@@ -25,14 +26,16 @@ const copied = ref(false)
 async function loadData() {
   loading.value = true
   try {
-    const [statsData, topData, trendData] = await Promise.all([
+    const [statsData, topData, trendData, deviceData] = await Promise.all([
       getOverviewStats(),
       getTopLinks(10, 30),
-      getClickTrend(trendDays.value)
+      getClickTrend(trendDays.value),
+      getDeviceStats(30)
     ])
     stats.value = statsData
     topLinks.value = topData.links
     trend.value = trendData.trend
+    deviceStats.value = deviceData
   } finally {
     loading.value = false
   }
@@ -262,6 +265,64 @@ const maxClicks = computed(() => Math.max(...trend.value.map(d => d.clicks), 1))
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
                   </svg>
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Device Analytics -->
+      <div v-if="deviceStats" class="bg-white shadow-sm rounded-xl p-6 mt-8">
+        <h2 class="text-lg font-semibold text-gray-900 mb-6">Device Analytics (30 days)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <!-- Device Type -->
+          <div>
+            <h3 class="text-sm font-medium text-gray-500 mb-3">Device Type</h3>
+            <div v-if="deviceStats.device_type.length === 0" class="text-gray-400 text-sm">No data</div>
+            <div v-else class="space-y-2">
+              <div v-for="item in deviceStats.device_type" :key="item.name" class="flex items-center gap-2">
+                <span class="w-20 text-sm text-gray-600 truncate" :title="item.name">{{ item.name }}</span>
+                <div class="flex-1 h-5 bg-gray-100 rounded overflow-hidden">
+                  <div
+                    class="h-full bg-blue-500 rounded"
+                    :style="{ width: Math.max((item.count / (deviceStats.device_type[0]?.count || 1)) * 100, 2) + '%' }"
+                  ></div>
+                </div>
+                <span class="w-12 text-right text-sm font-medium text-gray-700">{{ item.count }}</span>
+              </div>
+            </div>
+          </div>
+          <!-- Browser -->
+          <div>
+            <h3 class="text-sm font-medium text-gray-500 mb-3">Browser</h3>
+            <div v-if="deviceStats.browser.length === 0" class="text-gray-400 text-sm">No data</div>
+            <div v-else class="space-y-2">
+              <div v-for="item in deviceStats.browser" :key="item.name" class="flex items-center gap-2">
+                <span class="w-20 text-sm text-gray-600 truncate" :title="item.name">{{ item.name }}</span>
+                <div class="flex-1 h-5 bg-gray-100 rounded overflow-hidden">
+                  <div
+                    class="h-full bg-green-500 rounded"
+                    :style="{ width: Math.max((item.count / (deviceStats.browser[0]?.count || 1)) * 100, 2) + '%' }"
+                  ></div>
+                </div>
+                <span class="w-12 text-right text-sm font-medium text-gray-700">{{ item.count }}</span>
+              </div>
+            </div>
+          </div>
+          <!-- OS -->
+          <div>
+            <h3 class="text-sm font-medium text-gray-500 mb-3">Operating System</h3>
+            <div v-if="deviceStats.os.length === 0" class="text-gray-400 text-sm">No data</div>
+            <div v-else class="space-y-2">
+              <div v-for="item in deviceStats.os" :key="item.name" class="flex items-center gap-2">
+                <span class="w-20 text-sm text-gray-600 truncate" :title="item.name">{{ item.name }}</span>
+                <div class="flex-1 h-5 bg-gray-100 rounded overflow-hidden">
+                  <div
+                    class="h-full bg-purple-500 rounded"
+                    :style="{ width: Math.max((item.count / (deviceStats.os[0]?.count || 1)) * 100, 2) + '%' }"
+                  ></div>
+                </div>
+                <span class="w-12 text-right text-sm font-medium text-gray-700">{{ item.count }}</span>
               </div>
             </div>
           </div>

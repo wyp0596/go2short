@@ -632,3 +632,137 @@ func (s *Store) DeleteAPIToken(ctx context.Context, id int, userID *int) error {
 	}
 	return nil
 }
+
+// DistributionItem holds count for a single category value.
+type DistributionItem struct {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
+}
+
+// DeviceStats holds distribution data for device, browser, and OS.
+type DeviceStats struct {
+	DeviceType []DistributionItem `json:"device_type"`
+	Browser    []DistributionItem `json:"browser"`
+	OS         []DistributionItem `json:"os"`
+}
+
+// GetDeviceStats returns device/browser/OS distribution for all clicks.
+// userID nil means admin (all), otherwise filter by user's links.
+func (s *Store) GetDeviceStats(ctx context.Context, days int, userID *int) (*DeviceStats, error) {
+	stats := &DeviceStats{}
+	var err error
+
+	if userID == nil {
+		stats.DeviceType, err = s.queryDistribution(ctx,
+			`SELECT COALESCE(NULLIF(device_type, ''), 'unknown') as name, COUNT(*) as count
+			 FROM click_events WHERE ts >= NOW() - INTERVAL '1 day' * $1
+			 GROUP BY name ORDER BY count DESC LIMIT 10`, days)
+	} else {
+		stats.DeviceType, err = s.queryDistribution(ctx,
+			`SELECT COALESCE(NULLIF(device_type, ''), 'unknown') as name, COUNT(*) as count
+			 FROM click_events WHERE ts >= NOW() - INTERVAL '1 day' * $1
+			 AND code IN (SELECT code FROM links WHERE user_id = $2)
+			 GROUP BY name ORDER BY count DESC LIMIT 10`, days, *userID)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if userID == nil {
+		stats.Browser, err = s.queryDistribution(ctx,
+			`SELECT COALESCE(NULLIF(browser, ''), 'unknown') as name, COUNT(*) as count
+			 FROM click_events WHERE ts >= NOW() - INTERVAL '1 day' * $1
+			 GROUP BY name ORDER BY count DESC LIMIT 10`, days)
+	} else {
+		stats.Browser, err = s.queryDistribution(ctx,
+			`SELECT COALESCE(NULLIF(browser, ''), 'unknown') as name, COUNT(*) as count
+			 FROM click_events WHERE ts >= NOW() - INTERVAL '1 day' * $1
+			 AND code IN (SELECT code FROM links WHERE user_id = $2)
+			 GROUP BY name ORDER BY count DESC LIMIT 10`, days, *userID)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if userID == nil {
+		stats.OS, err = s.queryDistribution(ctx,
+			`SELECT COALESCE(NULLIF(os, ''), 'unknown') as name, COUNT(*) as count
+			 FROM click_events WHERE ts >= NOW() - INTERVAL '1 day' * $1
+			 GROUP BY name ORDER BY count DESC LIMIT 10`, days)
+	} else {
+		stats.OS, err = s.queryDistribution(ctx,
+			`SELECT COALESCE(NULLIF(os, ''), 'unknown') as name, COUNT(*) as count
+			 FROM click_events WHERE ts >= NOW() - INTERVAL '1 day' * $1
+			 AND code IN (SELECT code FROM links WHERE user_id = $2)
+			 GROUP BY name ORDER BY count DESC LIMIT 10`, days, *userID)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return stats, nil
+}
+
+// GetLinkDeviceStats returns device/browser/OS distribution for a specific link.
+// userID nil means admin, otherwise verifies link belongs to user.
+func (s *Store) GetLinkDeviceStats(ctx context.Context, code string, days int, userID *int) (*DeviceStats, error) {
+	// Verify link ownership if not admin
+	if userID != nil {
+		var count int
+		err := s.db.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM links WHERE code = $1 AND user_id = $2`, code, *userID).Scan(&count)
+		if err != nil {
+			return nil, err
+		}
+		if count == 0 {
+			return nil, sql.ErrNoRows
+		}
+	}
+
+	stats := &DeviceStats{}
+	var err error
+
+	stats.DeviceType, err = s.queryDistribution(ctx,
+		`SELECT COALESCE(NULLIF(device_type, ''), 'unknown') as name, COUNT(*) as count
+		 FROM click_events WHERE code = $1 AND ts >= NOW() - INTERVAL '1 day' * $2
+		 GROUP BY name ORDER BY count DESC LIMIT 10`, code, days)
+	if err != nil {
+		return nil, err
+	}
+
+	stats.Browser, err = s.queryDistribution(ctx,
+		`SELECT COALESCE(NULLIF(browser, ''), 'unknown') as name, COUNT(*) as count
+		 FROM click_events WHERE code = $1 AND ts >= NOW() - INTERVAL '1 day' * $2
+		 GROUP BY name ORDER BY count DESC LIMIT 10`, code, days)
+	if err != nil {
+		return nil, err
+	}
+
+	stats.OS, err = s.queryDistribution(ctx,
+		`SELECT COALESCE(NULLIF(os, ''), 'unknown') as name, COUNT(*) as count
+		 FROM click_events WHERE code = $1 AND ts >= NOW() - INTERVAL '1 day' * $2
+		 GROUP BY name ORDER BY count DESC LIMIT 10`, code, days)
+	if err != nil {
+		return nil, err
+	}
+
+	return stats, nil
+}
+
+func (s *Store) queryDistribution(ctx context.Context, query string, args ...any) ([]DistributionItem, error) {
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []DistributionItem
+	for rows.Next() {
+		var item DistributionItem
+		if err := rows.Scan(&item.Name, &item.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}

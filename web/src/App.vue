@@ -23,7 +23,7 @@ function logout() {
 </script>
 
 <template>
-  <div :class="isHomePage ? '' : 'min-h-screen bg-gray-100'">
+  <div :class="isHomePage || isDocsPage ? '' : 'min-h-screen bg-gray-100'">
     <!-- Admin Nav (logged in, on admin pages) -->
     <nav v-if="showAdminNav" class="bg-white shadow">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -80,11 +80,11 @@ function logout() {
     </nav>
 
     <!-- Docs Nav -->
-    <nav v-if="showDocsNav" class="bg-white shadow">
+    <nav v-if="showDocsNav" class="bg-gray-900/50 backdrop-blur-sm border-b border-white/10">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
           <div class="flex items-center">
-            <router-link to="/" class="text-xl font-bold text-gray-900 hover:text-blue-600">
+            <router-link to="/" class="text-xl font-bold text-white hover:text-blue-300">
               go2short
             </router-link>
           </div>
@@ -92,14 +92,14 @@ function logout() {
             <router-link
               v-if="isLoggedIn"
               to="/admin"
-              class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900"
+              class="px-3 py-2 rounded-md text-sm font-medium text-blue-100 hover:text-white"
             >
               Dashboard
             </router-link>
             <router-link
               v-else
               to="/admin/login"
-              class="px-3 py-2 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+              class="px-3 py-2 rounded-md text-sm font-medium text-blue-100 hover:text-white"
             >
               Login
             </router-link>

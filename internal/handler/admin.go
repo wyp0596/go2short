@@ -300,13 +300,24 @@ func (h *AdminHandler) GetLinkStats(c *gin.Context) {
 		days = 30
 	}
 
-	stats, err := h.store.GetLinkStats(c.Request.Context(), code, days, getUserID(c))
+	userID := getUserID(c)
+	stats, err := h.store.GetLinkStats(c.Request.Context(), code, days, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get stats"})
 		return
 	}
 
-	c.JSON(http.StatusOK, stats)
+	deviceStats, err := h.store.GetLinkDeviceStats(c.Request.Context(), code, days, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get device stats"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"total_clicks": stats.TotalClicks,
+		"daily_clicks": stats.DailyClicks,
+		"device_stats": deviceStats,
+	})
 }
 
 // GetOverviewStats returns overall statistics.
@@ -371,6 +382,22 @@ func (h *AdminHandler) GetClickTrend(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"trend": trend})
+}
+
+// GetDeviceStats returns device/browser/OS distribution for all clicks.
+func (h *AdminHandler) GetDeviceStats(c *gin.Context) {
+	days, _ := strconv.Atoi(c.DefaultQuery("days", "30"))
+	if days < 1 || days > 365 {
+		days = 30
+	}
+
+	stats, err := h.store.GetDeviceStats(c.Request.Context(), days, getUserID(c))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get device stats"})
+		return
+	}
+
+	c.JSON(http.StatusOK, stats)
 }
 
 type createTokenRequest struct {

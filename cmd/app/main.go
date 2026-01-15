@@ -137,6 +137,7 @@ func main() {
 	adminAuth.GET("/stats/overview", adminHandler.GetOverviewStats)
 	adminAuth.GET("/stats/top-links", adminHandler.GetTopLinks)
 	adminAuth.GET("/stats/trend", adminHandler.GetClickTrend)
+	adminAuth.GET("/stats/devices", adminHandler.GetDeviceStats)
 	adminAuth.POST("/tokens", adminHandler.CreateAPIToken)
 	adminAuth.GET("/tokens", adminHandler.ListAPITokens)
 	adminAuth.DELETE("/tokens/:id", adminHandler.DeleteAPIToken)

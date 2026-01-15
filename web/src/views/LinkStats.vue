@@ -143,6 +143,64 @@ function barHeight(clicks: number) {
           </table>
         </div>
       </div>
+
+      <!-- Device Analytics -->
+      <div v-if="stats.device_stats" class="bg-white rounded-xl shadow-sm p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-6">Device Analytics</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <!-- Device Type -->
+          <div>
+            <h4 class="text-sm font-medium text-gray-500 mb-3">Device Type</h4>
+            <div v-if="stats.device_stats.device_type.length === 0" class="text-gray-400 text-sm">No data</div>
+            <div v-else class="space-y-2">
+              <div v-for="item in stats.device_stats.device_type" :key="item.name" class="flex items-center gap-2">
+                <span class="w-20 text-sm text-gray-600 truncate" :title="item.name">{{ item.name }}</span>
+                <div class="flex-1 h-5 bg-gray-100 rounded overflow-hidden">
+                  <div
+                    class="h-full bg-blue-500 rounded"
+                    :style="{ width: Math.max((item.count / (stats.device_stats.device_type[0]?.count || 1)) * 100, 2) + '%' }"
+                  ></div>
+                </div>
+                <span class="w-12 text-right text-sm font-medium text-gray-700">{{ item.count }}</span>
+              </div>
+            </div>
+          </div>
+          <!-- Browser -->
+          <div>
+            <h4 class="text-sm font-medium text-gray-500 mb-3">Browser</h4>
+            <div v-if="stats.device_stats.browser.length === 0" class="text-gray-400 text-sm">No data</div>
+            <div v-else class="space-y-2">
+              <div v-for="item in stats.device_stats.browser" :key="item.name" class="flex items-center gap-2">
+                <span class="w-20 text-sm text-gray-600 truncate" :title="item.name">{{ item.name }}</span>
+                <div class="flex-1 h-5 bg-gray-100 rounded overflow-hidden">
+                  <div
+                    class="h-full bg-green-500 rounded"
+                    :style="{ width: Math.max((item.count / (stats.device_stats.browser[0]?.count || 1)) * 100, 2) + '%' }"
+                  ></div>
+                </div>
+                <span class="w-12 text-right text-sm font-medium text-gray-700">{{ item.count }}</span>
+              </div>
+            </div>
+          </div>
+          <!-- OS -->
+          <div>
+            <h4 class="text-sm font-medium text-gray-500 mb-3">Operating System</h4>
+            <div v-if="stats.device_stats.os.length === 0" class="text-gray-400 text-sm">No data</div>
+            <div v-else class="space-y-2">
+              <div v-for="item in stats.device_stats.os" :key="item.name" class="flex items-center gap-2">
+                <span class="w-20 text-sm text-gray-600 truncate" :title="item.name">{{ item.name }}</span>
+                <div class="flex-1 h-5 bg-gray-100 rounded overflow-hidden">
+                  <div
+                    class="h-full bg-purple-500 rounded"
+                    :style="{ width: Math.max((item.count / (stats.device_stats.os[0]?.count || 1)) * 100, 2) + '%' }"
+                  ></div>
+                </div>
+                <span class="w-12 text-right text-sm font-medium text-gray-700">{{ item.count }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
