@@ -8,9 +8,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/wyp0596/go2short/internal/cache"
-	"github.com/wyp0596/go2short/internal/store"
 )
 
 const charset = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -25,12 +22,12 @@ var (
 )
 
 type Service struct {
-	cache      *cache.Cache
-	store      *store.Store
+	cache      Cacher
+	store      Storer
 	codeLength int
 }
 
-func NewService(c *cache.Cache, s *store.Store, codeLength int) *Service {
+func NewService(c Cacher, s Storer, codeLength int) *Service {
 	return &Service{
 		cache:      c,
 		store:      s,
