@@ -1,13 +1,12 @@
 package handler
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mssola/useragent"
 	"github.com/wyp0596/go2short/internal/events"
 	"github.com/wyp0596/go2short/internal/metrics"
 	"github.com/wyp0596/go2short/internal/redirect"
@@ -49,14 +48,26 @@ func (h *RedirectHandler) Handle(c *gin.Context) {
 
 	switch result.StatusCode {
 	case 302:
+		// Parse User-Agent
+		uaStr := c.GetHeader("User-Agent")
+		ua := useragent.New(uaStr)
+		browserName, _ := ua.Browser()
+		deviceType := "desktop"
+		if ua.Mobile() {
+			deviceType = "mobile"
+		}
+
 		// Async enqueue click event
 		h.producer.EnqueueAsync(&events.ClickEvent{
-			Code:      code,
-			Timestamp: time.Now().UTC(),
-			IPHash:    hashString(c.ClientIP()),
-			UAHash:    hashString(c.GetHeader("User-Agent")),
-			Referer:   c.GetHeader("Referer"),
-			ReqID:     c.GetHeader("X-Request-ID"),
+			Code:       code,
+			Timestamp:  time.Now().UTC(),
+			IP:         c.ClientIP(),
+			UA:         uaStr,
+			DeviceType: deviceType,
+			Browser:    browserName,
+			OS:         ua.OS(),
+			Referer:    c.GetHeader("Referer"),
+			ReqID:      c.GetHeader("X-Request-ID"),
 		})
 		metrics.ClickEventsEnqueued.Inc()
 		c.Redirect(http.StatusFound, result.URL)
@@ -72,10 +83,3 @@ func (h *RedirectHandler) Handle(c *gin.Context) {
 	}
 }
 
-func hashString(s string) string {
-	if s == "" {
-		return ""
-	}
-	h := sha256.Sum256([]byte(s))
-	return hex.EncodeToString(h[:8]) // first 8 bytes = 16 hex chars
-}

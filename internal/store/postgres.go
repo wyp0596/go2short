@@ -102,14 +102,14 @@ func (s *Store) InsertClickEvents(ctx context.Context, events []ClickEvent) erro
 	defer tx.Rollback()
 
 	stmt, err := tx.PrepareContext(ctx,
-		`INSERT INTO click_events (code, ts, ip_hash, ua_hash, referer) VALUES ($1, $2, $3, $4, $5)`)
+		`INSERT INTO click_events (code, ts, ip, ua, device_type, browser, os, referer) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
 	for _, e := range events {
-		if _, err := stmt.ExecContext(ctx, e.Code, e.Timestamp, e.IPHash, e.UAHash, e.Referer); err != nil {
+		if _, err := stmt.ExecContext(ctx, e.Code, e.Timestamp, e.IP, e.UA, e.DeviceType, e.Browser, e.OS, e.Referer); err != nil {
 			return err
 		}
 	}
@@ -118,11 +118,14 @@ func (s *Store) InsertClickEvents(ctx context.Context, events []ClickEvent) erro
 }
 
 type ClickEvent struct {
-	Code      string
-	Timestamp time.Time
-	IPHash    string
-	UAHash    string
-	Referer   string
+	Code       string
+	Timestamp  time.Time
+	IP         string
+	UA         string
+	DeviceType string
+	Browser    string
+	OS         string
+	Referer    string
 }
 
 func (s *Store) Close() error {

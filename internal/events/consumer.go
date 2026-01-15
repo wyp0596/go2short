@@ -108,11 +108,14 @@ func (c *Consumer) consume(ctx context.Context) {
 			}
 
 			c.buffer = append(c.buffer, store.ClickEvent{
-				Code:      event.Code,
-				Timestamp: event.Timestamp,
-				IPHash:    event.IPHash,
-				UAHash:    event.UAHash,
-				Referer:   event.Referer,
+				Code:       event.Code,
+				Timestamp:  event.Timestamp,
+				IP:         event.IP,
+				UA:         event.UA,
+				DeviceType: event.DeviceType,
+				Browser:    event.Browser,
+				OS:         event.OS,
+				Referer:    event.Referer,
 			})
 
 			// ACK message

@@ -9,12 +9,15 @@ import (
 )
 
 type ClickEvent struct {
-	Code      string    `json:"code"`
-	Timestamp time.Time `json:"ts"`
-	IPHash    string    `json:"ip_hash"`
-	UAHash    string    `json:"ua_hash"`
-	Referer   string    `json:"referer"`
-	ReqID     string    `json:"req_id"`
+	Code       string    `json:"code"`
+	Timestamp  time.Time `json:"ts"`
+	IP         string    `json:"ip"`
+	UA         string    `json:"ua"`
+	DeviceType string    `json:"device_type"`
+	Browser    string    `json:"browser"`
+	OS         string    `json:"os"`
+	Referer    string    `json:"referer"`
+	ReqID      string    `json:"req_id"`
 }
 
 type Producer struct {
