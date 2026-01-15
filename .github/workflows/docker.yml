@@ -1,4 +1,4 @@
-name: Docker Build
+name: Release
 
 on:
   push:
@@ -15,6 +15,51 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build frontend
+        run: |
+          cd web
+          npm ci
+          npm run build
+
+      - name: Build binaries
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          mkdir -p dist
+
+          # linux/amd64
+          GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/go2short ./cmd/app
+          tar -czvf dist/go2short-${VERSION}-linux-amd64.tar.gz -C dist go2short
+          rm dist/go2short
+
+          # linux/arm64
+          GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o dist/go2short ./cmd/app
+          tar -czvf dist/go2short-${VERSION}-linux-arm64.tar.gz -C dist go2short
+          rm dist/go2short
+
+          # darwin/amd64
+          GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/go2short ./cmd/app
+          tar -czvf dist/go2short-${VERSION}-darwin-amd64.tar.gz -C dist go2short
+          rm dist/go2short
+
+          # darwin/arm64
+          GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/go2short ./cmd/app
+          tar -czvf dist/go2short-${VERSION}-darwin-arm64.tar.gz -C dist go2short
+          rm dist/go2short
+
+          # windows/amd64
+          GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o dist/go2short.exe ./cmd/app
+          cd dist && zip go2short-${VERSION}-windows-amd64.zip go2short.exe && rm go2short.exe && cd ..
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -35,7 +80,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest
 
-      - name: Build and push
+      - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -49,3 +94,6 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           generate_release_notes: true
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
