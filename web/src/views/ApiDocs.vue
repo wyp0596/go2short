@@ -51,12 +51,12 @@ onUnmounted(() => window.removeEventListener('scroll', handleScroll))
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50">
+  <div class="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900">
     <!-- Header -->
-    <div class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
+    <div class="border-b border-white/10">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <h1 class="text-4xl font-bold">go2short API</h1>
-        <p class="mt-2 text-blue-100 text-lg">Simple, fast URL shortening service</p>
+        <h1 class="text-4xl font-bold text-white">go2short API</h1>
+        <p class="mt-2 text-blue-200 text-lg">Simple, fast URL shortening service</p>
       </div>
     </div>
 
@@ -64,15 +64,15 @@ onUnmounted(() => window.removeEventListener('scroll', handleScroll))
       <div class="lg:grid lg:grid-cols-12 lg:gap-8">
         <!-- Sidebar Navigation -->
         <aside class="hidden lg:block lg:col-span-3">
-          <nav class="sticky top-8 space-y-1">
+          <nav class="sticky top-8 space-y-1 bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20">
             <button
               v-for="section in sections"
               :key="section.id"
               @click="scrollToSection(section.id)"
-              class="w-full text-left px-3 py-2 text-sm font-medium rounded-md transition-colors"
+              class="w-full text-left px-3 py-2 text-sm font-medium rounded-lg transition-colors"
               :class="activeSection === section.id
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'"
+                ? 'bg-blue-500 text-white'
+                : 'text-blue-100 hover:bg-white/10 hover:text-white'"
             >
               {{ section.title }}
             </button>
@@ -80,7 +80,7 @@ onUnmounted(() => window.removeEventListener('scroll', handleScroll))
         </aside>
 
         <!-- Main Content -->
-        <main class="lg:col-span-9 space-y-12">
+        <main class="lg:col-span-9 space-y-8 bg-white rounded-xl p-6 shadow-xl">
           <!-- Overview -->
           <section id="overview" class="scroll-mt-8">
             <h2 class="text-2xl font-bold text-gray-900 border-b pb-2">Overview</h2>

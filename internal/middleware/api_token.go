@@ -51,6 +51,12 @@ func (m *APITokenMiddleware) RequireAPIToken() gin.HandlerFunc {
 
 		c.Set("api_token_id", apiToken.ID)
 		c.Set("api_token_name", apiToken.Name)
+		// Set userID from token (null means global/admin token)
+		if apiToken.UserID.Valid {
+			c.Set("userID", int(apiToken.UserID.Int32))
+		} else {
+			c.Set("userID", 0) // Global token, no user restriction
+		}
 		c.Next()
 	}
 }

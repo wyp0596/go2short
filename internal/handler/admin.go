@@ -36,18 +36,18 @@ func NewAdminHandler(s *store.Store, c *cache.Cache, auth *middleware.AuthMiddle
 	}
 }
 
-type loginRequest struct {
+type adminLoginRequest struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
 }
 
-type loginResponse struct {
+type adminLoginResponse struct {
 	Token string `json:"token"`
 }
 
-// Login handles admin login.
+// Login handles super admin login (env configured credentials).
 func (h *AdminHandler) Login(c *gin.Context) {
-	var req loginRequest
+	var req adminLoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
@@ -66,13 +66,27 @@ func (h *AdminHandler) Login(c *gin.Context) {
 	}
 	token := hex.EncodeToString(b)
 
-	// Save token to Redis
-	if err := h.auth.SaveToken(c.Request.Context(), token, h.cfg.AdminTokenTTL); err != nil {
+	// Save token to Redis with userID=0, isAdmin=true
+	if err := h.auth.SaveToken(c.Request.Context(), token, 0, true, h.cfg.AdminTokenTTL); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save token"})
 		return
 	}
 
-	c.JSON(http.StatusOK, loginResponse{Token: token})
+	c.JSON(http.StatusOK, adminLoginResponse{Token: token})
+}
+
+// getUserID returns pointer to userID for store queries.
+// Returns nil for admin (query all), or &userID for regular users.
+func getUserID(c *gin.Context) *int {
+	isAdmin, _ := c.Get("isAdmin")
+	if admin, ok := isAdmin.(bool); ok && admin {
+		return nil
+	}
+	userID, _ := c.Get("userID")
+	if uid, ok := userID.(int); ok && uid > 0 {
+		return &uid
+	}
+	return nil
 }
 
 // Logout handles admin logout.
@@ -133,6 +147,7 @@ func (h *AdminHandler) CreateLink(c *gin.Context) {
 		LongURL:    req.LongURL,
 		ExpiresAt:  expiresAt,
 		CustomCode: customCode,
+		UserID:     getUserID(c),
 	})
 
 	if err != nil {
@@ -174,7 +189,7 @@ func (h *AdminHandler) ListLinks(c *gin.Context) {
 	}
 	offset := (page - 1) * limit
 
-	links, total, err := h.store.ListLinks(c.Request.Context(), search, limit, offset)
+	links, total, err := h.store.ListLinks(c.Request.Context(), search, limit, offset, getUserID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list links"})
 		return
@@ -218,7 +233,7 @@ func (h *AdminHandler) UpdateLink(c *gin.Context) {
 		return
 	}
 
-	err := h.store.UpdateLink(c.Request.Context(), code, req.LongURL, req.ExpiresAt)
+	err := h.store.UpdateLink(c.Request.Context(), code, req.LongURL, req.ExpiresAt, getUserID(c))
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "link not found"})
 		return
@@ -238,7 +253,7 @@ func (h *AdminHandler) UpdateLink(c *gin.Context) {
 func (h *AdminHandler) DeleteLink(c *gin.Context) {
 	code := c.Param("code")
 
-	err := h.store.DeleteLink(c.Request.Context(), code)
+	err := h.store.DeleteLink(c.Request.Context(), code, getUserID(c))
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "link not found"})
 		return
@@ -264,7 +279,7 @@ func (h *AdminHandler) SetLinkDisabled(c *gin.Context) {
 		return
 	}
 
-	err := h.store.SetLinkDisabled(c.Request.Context(), code, req.Disabled)
+	err := h.store.SetLinkDisabled(c.Request.Context(), code, req.Disabled, getUserID(c))
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "link not found"})
 		return
@@ -285,7 +300,7 @@ func (h *AdminHandler) GetLinkStats(c *gin.Context) {
 		days = 30
 	}
 
-	stats, err := h.store.GetLinkStats(c.Request.Context(), code, days)
+	stats, err := h.store.GetLinkStats(c.Request.Context(), code, days, getUserID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get stats"})
 		return
@@ -296,7 +311,7 @@ func (h *AdminHandler) GetLinkStats(c *gin.Context) {
 
 // GetOverviewStats returns overall statistics.
 func (h *AdminHandler) GetOverviewStats(c *gin.Context) {
-	stats, err := h.store.GetOverviewStats(c.Request.Context())
+	stats, err := h.store.GetOverviewStats(c.Request.Context(), getUserID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get stats"})
 		return
@@ -316,7 +331,7 @@ func (h *AdminHandler) GetTopLinks(c *gin.Context) {
 		days = 30
 	}
 
-	links, err := h.store.GetTopLinks(c.Request.Context(), limit, days)
+	links, err := h.store.GetTopLinks(c.Request.Context(), limit, days, getUserID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get top links"})
 		return
@@ -349,7 +364,7 @@ func (h *AdminHandler) GetClickTrend(c *gin.Context) {
 		days = 30
 	}
 
-	trend, err := h.store.GetClickTrend(c.Request.Context(), days)
+	trend, err := h.store.GetClickTrend(c.Request.Context(), days, getUserID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get trend"})
 		return
@@ -385,7 +400,7 @@ func (h *AdminHandler) CreateAPIToken(c *gin.Context) {
 	token := hex.EncodeToString(b)
 	tokenHash := middleware.HashToken(token)
 
-	id, err := h.store.CreateAPIToken(c.Request.Context(), tokenHash, req.Name)
+	id, err := h.store.CreateAPIToken(c.Request.Context(), tokenHash, req.Name, getUserID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create token"})
 		return
@@ -405,9 +420,9 @@ type apiTokenResponse struct {
 	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
 }
 
-// ListAPITokens returns all API tokens (without token values).
+// ListAPITokens returns API tokens (without token values).
 func (h *AdminHandler) ListAPITokens(c *gin.Context) {
-	tokens, err := h.store.ListAPITokens(c.Request.Context())
+	tokens, err := h.store.ListAPITokens(c.Request.Context(), getUserID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list tokens"})
 		return
@@ -437,7 +452,7 @@ func (h *AdminHandler) DeleteAPIToken(c *gin.Context) {
 		return
 	}
 
-	err = h.store.DeleteAPIToken(c.Request.Context(), id)
+	err = h.store.DeleteAPIToken(c.Request.Context(), id, getUserID(c))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "token not found"})
 		return

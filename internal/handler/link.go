@@ -58,10 +58,19 @@ func (h *LinkHandler) Create(c *gin.Context) {
 		customCode = *req.CustomCode
 	}
 
+	// Get userID from API token (set by api_token middleware)
+	var userID *int
+	if uid, ok := c.Get("userID"); ok {
+		if id, ok := uid.(int); ok && id > 0 {
+			userID = &id
+		}
+	}
+
 	result, err := h.service.Create(c.Request.Context(), &link.CreateRequest{
 		LongURL:    req.LongURL,
 		ExpiresAt:  expiresAt,
 		CustomCode: customCode,
+		UserID:     userID,
 	})
 
 	if err != nil {
@@ -162,6 +171,14 @@ func (h *LinkHandler) BatchCreate(c *gin.Context) {
 		return
 	}
 
+	// Get userID from API token
+	var userID *int
+	if uid, ok := c.Get("userID"); ok {
+		if id, ok := uid.(int); ok && id > 0 {
+			userID = &id
+		}
+	}
+
 	// Convert to service requests
 	serviceReqs := make([]link.BatchCreateRequest, len(req.Items))
 	for i, item := range req.Items {
@@ -185,6 +202,7 @@ func (h *LinkHandler) BatchCreate(c *gin.Context) {
 			LongURL:    item.LongURL,
 			ExpiresAt:  expiresAt,
 			CustomCode: customCode,
+			UserID:     userID,
 		}
 	}
 

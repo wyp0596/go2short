@@ -16,6 +16,17 @@ type Link struct {
 	CreatedAt  time.Time
 	ExpiresAt  sql.NullTime
 	IsDisabled bool
+	UserID     sql.NullInt32
+}
+
+type User struct {
+	ID           int
+	Email        string
+	PasswordHash sql.NullString
+	Provider     string
+	ProviderID   sql.NullString
+	CreatedAt    time.Time
+	LastLoginAt  sql.NullTime
 }
 
 type Store struct {
@@ -60,15 +71,20 @@ func (s *Store) GetLink(ctx context.Context, code string) (*Link, error) {
 }
 
 // CreateLink inserts a new link. Returns error if code already exists.
-func (s *Store) CreateLink(ctx context.Context, code, longURL string, expiresAt *time.Time) error {
+// userID can be nil for system/admin created links.
+func (s *Store) CreateLink(ctx context.Context, code, longURL string, expiresAt *time.Time, userID *int) error {
 	var exp sql.NullTime
 	if expiresAt != nil {
 		exp = sql.NullTime{Time: *expiresAt, Valid: true}
 	}
+	var uid sql.NullInt32
+	if userID != nil {
+		uid = sql.NullInt32{Int32: int32(*userID), Valid: true}
+	}
 
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO links (code, long_url, expires_at) VALUES ($1, $2, $3)`,
-		code, longURL, exp,
+		`INSERT INTO links (code, long_url, expires_at, user_id) VALUES ($1, $2, $3, $4)`,
+		code, longURL, exp, uid,
 	)
 	return err
 }
@@ -113,31 +129,131 @@ func (s *Store) Close() error {
 	return s.db.Close()
 }
 
+// CreateUser creates a new user and returns the ID.
+func (s *Store) CreateUser(ctx context.Context, email, passwordHash, provider, providerID string) (int, error) {
+	var pwHash sql.NullString
+	if passwordHash != "" {
+		pwHash = sql.NullString{String: passwordHash, Valid: true}
+	}
+	var provID sql.NullString
+	if providerID != "" {
+		provID = sql.NullString{String: providerID, Valid: true}
+	}
+
+	var id int
+	err := s.db.QueryRowContext(ctx,
+		`INSERT INTO users (email, password_hash, provider, provider_id) VALUES ($1, $2, $3, $4) RETURNING id`,
+		email, pwHash, provider, provID,
+	).Scan(&id)
+	return id, err
+}
+
+// GetUserByEmail returns user by email.
+func (s *Store) GetUserByEmail(ctx context.Context, email string) (*User, error) {
+	var u User
+	err := s.db.QueryRowContext(ctx,
+		`SELECT id, email, password_hash, provider, provider_id, created_at, last_login_at FROM users WHERE email = $1`,
+		email,
+	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Provider, &u.ProviderID, &u.CreatedAt, &u.LastLoginAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+// GetUserByProvider returns user by OAuth provider and provider ID.
+func (s *Store) GetUserByProvider(ctx context.Context, provider, providerID string) (*User, error) {
+	var u User
+	err := s.db.QueryRowContext(ctx,
+		`SELECT id, email, password_hash, provider, provider_id, created_at, last_login_at FROM users WHERE provider = $1 AND provider_id = $2`,
+		provider, providerID,
+	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Provider, &u.ProviderID, &u.CreatedAt, &u.LastLoginAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+// GetUserByID returns user by ID.
+func (s *Store) GetUserByID(ctx context.Context, id int) (*User, error) {
+	var u User
+	err := s.db.QueryRowContext(ctx,
+		`SELECT id, email, password_hash, provider, provider_id, created_at, last_login_at FROM users WHERE id = $1`,
+		id,
+	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Provider, &u.ProviderID, &u.CreatedAt, &u.LastLoginAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+// UpdateUserLastLogin updates the last_login_at timestamp.
+func (s *Store) UpdateUserLastLogin(ctx context.Context, id int) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE users SET last_login_at = NOW() WHERE id = $1`, id)
+	return err
+}
+
 // ListLinks returns paginated links with optional search.
-func (s *Store) ListLinks(ctx context.Context, search string, limit, offset int) ([]Link, int, error) {
+// userID nil means all links (admin), otherwise filter by user.
+func (s *Store) ListLinks(ctx context.Context, search string, limit, offset int, userID *int) ([]Link, int, error) {
 	var total int
 	var rows *sql.Rows
 	var err error
 
-	if search != "" {
-		pattern := "%" + search + "%"
-		err = s.db.QueryRowContext(ctx,
-			`SELECT COUNT(*) FROM links WHERE code ILIKE $1 OR long_url ILIKE $1`, pattern).Scan(&total)
-		if err != nil {
-			return nil, 0, err
+	if userID == nil {
+		// Admin: all links
+		if search != "" {
+			pattern := "%" + search + "%"
+			err = s.db.QueryRowContext(ctx,
+				`SELECT COUNT(*) FROM links WHERE code ILIKE $1 OR long_url ILIKE $1`, pattern).Scan(&total)
+			if err != nil {
+				return nil, 0, err
+			}
+			rows, err = s.db.QueryContext(ctx,
+				`SELECT code, long_url, created_at, expires_at, is_disabled, user_id FROM links
+				 WHERE code ILIKE $1 OR long_url ILIKE $1
+				 ORDER BY created_at DESC LIMIT $2 OFFSET $3`, pattern, limit, offset)
+		} else {
+			err = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM links`).Scan(&total)
+			if err != nil {
+				return nil, 0, err
+			}
+			rows, err = s.db.QueryContext(ctx,
+				`SELECT code, long_url, created_at, expires_at, is_disabled, user_id FROM links
+				 ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 		}
-		rows, err = s.db.QueryContext(ctx,
-			`SELECT code, long_url, created_at, expires_at, is_disabled FROM links
-			 WHERE code ILIKE $1 OR long_url ILIKE $1
-			 ORDER BY created_at DESC LIMIT $2 OFFSET $3`, pattern, limit, offset)
 	} else {
-		err = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM links`).Scan(&total)
-		if err != nil {
-			return nil, 0, err
+		// Regular user: only their links
+		if search != "" {
+			pattern := "%" + search + "%"
+			err = s.db.QueryRowContext(ctx,
+				`SELECT COUNT(*) FROM links WHERE user_id = $1 AND (code ILIKE $2 OR long_url ILIKE $2)`, *userID, pattern).Scan(&total)
+			if err != nil {
+				return nil, 0, err
+			}
+			rows, err = s.db.QueryContext(ctx,
+				`SELECT code, long_url, created_at, expires_at, is_disabled, user_id FROM links
+				 WHERE user_id = $1 AND (code ILIKE $2 OR long_url ILIKE $2)
+				 ORDER BY created_at DESC LIMIT $3 OFFSET $4`, *userID, pattern, limit, offset)
+		} else {
+			err = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM links WHERE user_id = $1`, *userID).Scan(&total)
+			if err != nil {
+				return nil, 0, err
+			}
+			rows, err = s.db.QueryContext(ctx,
+				`SELECT code, long_url, created_at, expires_at, is_disabled, user_id FROM links
+				 WHERE user_id = $1
+				 ORDER BY created_at DESC LIMIT $2 OFFSET $3`, *userID, limit, offset)
 		}
-		rows, err = s.db.QueryContext(ctx,
-			`SELECT code, long_url, created_at, expires_at, is_disabled FROM links
-			 ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	}
 	if err != nil {
 		return nil, 0, err
@@ -147,7 +263,7 @@ func (s *Store) ListLinks(ctx context.Context, search string, limit, offset int)
 	var links []Link
 	for rows.Next() {
 		var l Link
-		if err := rows.Scan(&l.Code, &l.LongURL, &l.CreatedAt, &l.ExpiresAt, &l.IsDisabled); err != nil {
+		if err := rows.Scan(&l.Code, &l.LongURL, &l.CreatedAt, &l.ExpiresAt, &l.IsDisabled, &l.UserID); err != nil {
 			return nil, 0, err
 		}
 		links = append(links, l)
@@ -156,14 +272,23 @@ func (s *Store) ListLinks(ctx context.Context, search string, limit, offset int)
 }
 
 // UpdateLink updates a link's long_url and expires_at.
-func (s *Store) UpdateLink(ctx context.Context, code, longURL string, expiresAt *time.Time) error {
+// userID nil means admin (can update any), otherwise only user's own links.
+func (s *Store) UpdateLink(ctx context.Context, code, longURL string, expiresAt *time.Time, userID *int) error {
 	var exp sql.NullTime
 	if expiresAt != nil {
 		exp = sql.NullTime{Time: *expiresAt, Valid: true}
 	}
-	result, err := s.db.ExecContext(ctx,
-		`UPDATE links SET long_url = $1, expires_at = $2 WHERE code = $3`,
-		longURL, exp, code)
+	var result sql.Result
+	var err error
+	if userID == nil {
+		result, err = s.db.ExecContext(ctx,
+			`UPDATE links SET long_url = $1, expires_at = $2 WHERE code = $3`,
+			longURL, exp, code)
+	} else {
+		result, err = s.db.ExecContext(ctx,
+			`UPDATE links SET long_url = $1, expires_at = $2 WHERE code = $3 AND user_id = $4`,
+			longURL, exp, code, *userID)
+	}
 	if err != nil {
 		return err
 	}
@@ -175,9 +300,17 @@ func (s *Store) UpdateLink(ctx context.Context, code, longURL string, expiresAt 
 }
 
 // SetLinkDisabled enables or disables a link.
-func (s *Store) SetLinkDisabled(ctx context.Context, code string, disabled bool) error {
-	result, err := s.db.ExecContext(ctx,
-		`UPDATE links SET is_disabled = $1 WHERE code = $2`, disabled, code)
+// userID nil means admin, otherwise only user's own links.
+func (s *Store) SetLinkDisabled(ctx context.Context, code string, disabled bool, userID *int) error {
+	var result sql.Result
+	var err error
+	if userID == nil {
+		result, err = s.db.ExecContext(ctx,
+			`UPDATE links SET is_disabled = $1 WHERE code = $2`, disabled, code)
+	} else {
+		result, err = s.db.ExecContext(ctx,
+			`UPDATE links SET is_disabled = $1 WHERE code = $2 AND user_id = $3`, disabled, code, *userID)
+	}
 	if err != nil {
 		return err
 	}
@@ -189,8 +322,15 @@ func (s *Store) SetLinkDisabled(ctx context.Context, code string, disabled bool)
 }
 
 // DeleteLink removes a link.
-func (s *Store) DeleteLink(ctx context.Context, code string) error {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM links WHERE code = $1`, code)
+// userID nil means admin, otherwise only user's own links.
+func (s *Store) DeleteLink(ctx context.Context, code string, userID *int) error {
+	var result sql.Result
+	var err error
+	if userID == nil {
+		result, err = s.db.ExecContext(ctx, `DELETE FROM links WHERE code = $1`, code)
+	} else {
+		result, err = s.db.ExecContext(ctx, `DELETE FROM links WHERE code = $1 AND user_id = $2`, code, *userID)
+	}
 	if err != nil {
 		return err
 	}
@@ -213,7 +353,21 @@ type DayClick struct {
 }
 
 // GetLinkStats returns click statistics for a link.
-func (s *Store) GetLinkStats(ctx context.Context, code string, days int) (*LinkClickStats, error) {
+// userID nil means admin, otherwise verifies link belongs to user.
+func (s *Store) GetLinkStats(ctx context.Context, code string, days int, userID *int) (*LinkClickStats, error) {
+	// Verify link ownership if not admin
+	if userID != nil {
+		var count int
+		err := s.db.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM links WHERE code = $1 AND user_id = $2`, code, *userID).Scan(&count)
+		if err != nil {
+			return nil, err
+		}
+		if count == 0 {
+			return nil, sql.ErrNoRows
+		}
+	}
+
 	var total int
 	err := s.db.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM click_events WHERE code = $1`, code).Scan(&total)
@@ -252,25 +406,42 @@ type OverviewStats struct {
 }
 
 // GetOverviewStats returns overall statistics.
-func (s *Store) GetOverviewStats(ctx context.Context) (*OverviewStats, error) {
+// userID nil means admin (all), otherwise filter by user.
+func (s *Store) GetOverviewStats(ctx context.Context, userID *int) (*OverviewStats, error) {
 	var stats OverviewStats
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM links`).Scan(&stats.TotalLinks)
-	if err != nil {
-		return nil, err
-	}
-	err = s.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM links WHERE is_disabled = false AND (expires_at IS NULL OR expires_at > NOW())`).Scan(&stats.ActiveLinks)
-	if err != nil {
-		return nil, err
-	}
-	err = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM click_events`).Scan(&stats.TotalClicks)
-	if err != nil {
-		return nil, err
-	}
-	err = s.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM click_events WHERE ts >= DATE_TRUNC('day', NOW())`).Scan(&stats.TodayClicks)
-	if err != nil {
-		return nil, err
+	if userID == nil {
+		// Admin: global stats
+		if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM links`).Scan(&stats.TotalLinks); err != nil {
+			return nil, err
+		}
+		if err := s.db.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM links WHERE is_disabled = false AND (expires_at IS NULL OR expires_at > NOW())`).Scan(&stats.ActiveLinks); err != nil {
+			return nil, err
+		}
+		if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM click_events`).Scan(&stats.TotalClicks); err != nil {
+			return nil, err
+		}
+		if err := s.db.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM click_events WHERE ts >= DATE_TRUNC('day', NOW())`).Scan(&stats.TodayClicks); err != nil {
+			return nil, err
+		}
+	} else {
+		// User: user's stats
+		if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM links WHERE user_id = $1`, *userID).Scan(&stats.TotalLinks); err != nil {
+			return nil, err
+		}
+		if err := s.db.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM links WHERE user_id = $1 AND is_disabled = false AND (expires_at IS NULL OR expires_at > NOW())`, *userID).Scan(&stats.ActiveLinks); err != nil {
+			return nil, err
+		}
+		if err := s.db.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM click_events WHERE code IN (SELECT code FROM links WHERE user_id = $1)`, *userID).Scan(&stats.TotalClicks); err != nil {
+			return nil, err
+		}
+		if err := s.db.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM click_events WHERE code IN (SELECT code FROM links WHERE user_id = $1) AND ts >= DATE_TRUNC('day', NOW())`, *userID).Scan(&stats.TodayClicks); err != nil {
+			return nil, err
+		}
 	}
 	return &stats, nil
 }
@@ -283,14 +454,28 @@ type TopLink struct {
 }
 
 // GetTopLinks returns the top N links by click count in the last N days.
-func (s *Store) GetTopLinks(ctx context.Context, limit, days int) ([]TopLink, error) {
-	rows, err := s.db.QueryContext(ctx,
-		`SELECT l.code, l.long_url, COUNT(c.id) as clicks
-		 FROM links l
-		 LEFT JOIN click_events c ON l.code = c.code AND c.ts >= NOW() - INTERVAL '1 day' * $2
-		 GROUP BY l.code, l.long_url
-		 ORDER BY clicks DESC
-		 LIMIT $1`, limit, days)
+// userID nil means admin (all), otherwise filter by user.
+func (s *Store) GetTopLinks(ctx context.Context, limit, days int, userID *int) ([]TopLink, error) {
+	var rows *sql.Rows
+	var err error
+	if userID == nil {
+		rows, err = s.db.QueryContext(ctx,
+			`SELECT l.code, l.long_url, COUNT(c.id) as clicks
+			 FROM links l
+			 LEFT JOIN click_events c ON l.code = c.code AND c.ts >= NOW() - INTERVAL '1 day' * $2
+			 GROUP BY l.code, l.long_url
+			 ORDER BY clicks DESC
+			 LIMIT $1`, limit, days)
+	} else {
+		rows, err = s.db.QueryContext(ctx,
+			`SELECT l.code, l.long_url, COUNT(c.id) as clicks
+			 FROM links l
+			 LEFT JOIN click_events c ON l.code = c.code AND c.ts >= NOW() - INTERVAL '1 day' * $2
+			 WHERE l.user_id = $3
+			 GROUP BY l.code, l.long_url
+			 ORDER BY clicks DESC
+			 LIMIT $1`, limit, days, *userID)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -308,13 +493,25 @@ func (s *Store) GetTopLinks(ctx context.Context, limit, days int) ([]TopLink, er
 }
 
 // GetClickTrend returns daily click counts for the last N days across all links.
-func (s *Store) GetClickTrend(ctx context.Context, days int) ([]DayClick, error) {
-	rows, err := s.db.QueryContext(ctx,
-		`SELECT DATE(ts) as day, COUNT(*) as clicks
-		 FROM click_events
-		 WHERE ts >= NOW() - INTERVAL '1 day' * $1
-		 GROUP BY DATE(ts)
-		 ORDER BY day ASC`, days)
+// userID nil means admin (all), otherwise filter by user.
+func (s *Store) GetClickTrend(ctx context.Context, days int, userID *int) ([]DayClick, error) {
+	var rows *sql.Rows
+	var err error
+	if userID == nil {
+		rows, err = s.db.QueryContext(ctx,
+			`SELECT DATE(ts) as day, COUNT(*) as clicks
+			 FROM click_events
+			 WHERE ts >= NOW() - INTERVAL '1 day' * $1
+			 GROUP BY DATE(ts)
+			 ORDER BY day ASC`, days)
+	} else {
+		rows, err = s.db.QueryContext(ctx,
+			`SELECT DATE(ts) as day, COUNT(*) as clicks
+			 FROM click_events
+			 WHERE ts >= NOW() - INTERVAL '1 day' * $1 AND code IN (SELECT code FROM links WHERE user_id = $2)
+			 GROUP BY DATE(ts)
+			 ORDER BY day ASC`, days, *userID)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -341,14 +538,20 @@ type APIToken struct {
 	CreatedAt  time.Time
 	LastUsedAt sql.NullTime
 	Disabled   bool
+	UserID     sql.NullInt32
 }
 
 // CreateAPIToken inserts a new API token. Returns the ID.
-func (s *Store) CreateAPIToken(ctx context.Context, tokenHash, name string) (int, error) {
+// userID can be nil for admin-created global tokens.
+func (s *Store) CreateAPIToken(ctx context.Context, tokenHash, name string, userID *int) (int, error) {
+	var uid sql.NullInt32
+	if userID != nil {
+		uid = sql.NullInt32{Int32: int32(*userID), Valid: true}
+	}
 	var id int
 	err := s.db.QueryRowContext(ctx,
-		`INSERT INTO api_tokens (token_hash, name) VALUES ($1, $2) RETURNING id`,
-		tokenHash, name,
+		`INSERT INTO api_tokens (token_hash, name, user_id) VALUES ($1, $2, $3) RETURNING id`,
+		tokenHash, name, uid,
 	).Scan(&id)
 	return id, err
 }
@@ -357,10 +560,10 @@ func (s *Store) CreateAPIToken(ctx context.Context, tokenHash, name string) (int
 func (s *Store) GetAPITokenByHash(ctx context.Context, tokenHash string) (*APIToken, error) {
 	var t APIToken
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, token_hash, name, created_at, last_used_at, disabled
+		`SELECT id, token_hash, name, created_at, last_used_at, disabled, user_id
 		 FROM api_tokens WHERE token_hash = $1 AND disabled = false`,
 		tokenHash,
-	).Scan(&t.ID, &t.TokenHash, &t.Name, &t.CreatedAt, &t.LastUsedAt, &t.Disabled)
+	).Scan(&t.ID, &t.TokenHash, &t.Name, &t.CreatedAt, &t.LastUsedAt, &t.Disabled, &t.UserID)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -377,11 +580,20 @@ func (s *Store) UpdateAPITokenLastUsed(ctx context.Context, id int) error {
 	return err
 }
 
-// ListAPITokens returns all API tokens.
-func (s *Store) ListAPITokens(ctx context.Context) ([]APIToken, error) {
-	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, token_hash, name, created_at, last_used_at, disabled
-		 FROM api_tokens ORDER BY created_at DESC`)
+// ListAPITokens returns API tokens.
+// userID nil means admin (all), otherwise filter by user.
+func (s *Store) ListAPITokens(ctx context.Context, userID *int) ([]APIToken, error) {
+	var rows *sql.Rows
+	var err error
+	if userID == nil {
+		rows, err = s.db.QueryContext(ctx,
+			`SELECT id, token_hash, name, created_at, last_used_at, disabled, user_id
+			 FROM api_tokens ORDER BY created_at DESC`)
+	} else {
+		rows, err = s.db.QueryContext(ctx,
+			`SELECT id, token_hash, name, created_at, last_used_at, disabled, user_id
+			 FROM api_tokens WHERE user_id = $1 ORDER BY created_at DESC`, *userID)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -390,7 +602,7 @@ func (s *Store) ListAPITokens(ctx context.Context) ([]APIToken, error) {
 	var tokens []APIToken
 	for rows.Next() {
 		var t APIToken
-		if err := rows.Scan(&t.ID, &t.TokenHash, &t.Name, &t.CreatedAt, &t.LastUsedAt, &t.Disabled); err != nil {
+		if err := rows.Scan(&t.ID, &t.TokenHash, &t.Name, &t.CreatedAt, &t.LastUsedAt, &t.Disabled, &t.UserID); err != nil {
 			return nil, err
 		}
 		tokens = append(tokens, t)
@@ -399,8 +611,15 @@ func (s *Store) ListAPITokens(ctx context.Context) ([]APIToken, error) {
 }
 
 // DeleteAPIToken removes an API token.
-func (s *Store) DeleteAPIToken(ctx context.Context, id int) error {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM api_tokens WHERE id = $1`, id)
+// userID nil means admin (can delete any), otherwise only user's own tokens.
+func (s *Store) DeleteAPIToken(ctx context.Context, id int, userID *int) error {
+	var result sql.Result
+	var err error
+	if userID == nil {
+		result, err = s.db.ExecContext(ctx, `DELETE FROM api_tokens WHERE id = $1`, id)
+	} else {
+		result, err = s.db.ExecContext(ctx, `DELETE FROM api_tokens WHERE id = $1 AND user_id = $2`, id, *userID)
+	}
 	if err != nil {
 		return err
 	}

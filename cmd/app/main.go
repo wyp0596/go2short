@@ -57,6 +57,7 @@ func main() {
 	authMiddleware := middleware.NewAuthMiddleware(c.Client(), cfg.RedisKeyPrefix)
 	apiTokenMiddleware := middleware.NewAPITokenMiddleware(s)
 	adminHandler := handler.NewAdminHandler(s, c, authMiddleware, cfg, linkService)
+	authHandler := handler.NewAuthHandler(cfg, s, authMiddleware)
 
 	// Initialize rate limiter (60 requests per minute for link creation)
 	rateLimiter := middleware.NewRateLimiter(c.Client(), cfg.RedisKeyPrefix, 60, time.Minute)
@@ -110,7 +111,17 @@ func main() {
 	api.POST("/links/batch", apiTokenMiddleware.RequireAPIToken(), rateLimiter.Limit(), linkHandler.BatchCreate)
 	api.GET("/links/:code/preview", apiTokenMiddleware.RequireAPIToken(), linkHandler.Preview)
 
-	// Admin routes
+	// User auth routes (public)
+	auth := api.Group("/auth")
+	auth.POST("/register", authHandler.Register)
+	auth.POST("/login", authHandler.Login)
+	auth.GET("/providers", authHandler.OAuthEnabled)
+	auth.GET("/google", authHandler.GoogleRedirect)
+	auth.GET("/google/callback", authHandler.GoogleCallback)
+	auth.GET("/github", authHandler.GitHubRedirect)
+	auth.GET("/github/callback", authHandler.GitHubCallback)
+
+	// Admin routes (super admin login)
 	admin := api.Group("/admin")
 	admin.POST("/login", adminHandler.Login)
 	// Protected admin routes

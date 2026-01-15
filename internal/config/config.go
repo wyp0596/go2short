@@ -20,6 +20,12 @@ type Config struct {
 	AdminPassword string
 	AdminTokenTTL time.Duration
 
+	// OAuth
+	GoogleClientID     string
+	GoogleClientSecret string
+	GitHubClientID     string
+	GitHubClientSecret string
+
 	// Redirect
 	RedirectStatusCode int
 	CodeLength         int
@@ -54,6 +60,10 @@ func Load() *Config {
 		AdminUsername:       getEnv("ADMIN_USERNAME", "admin"),
 		AdminPassword:       getEnv("ADMIN_PASSWORD", "admin123"),
 		AdminTokenTTL:       getDuration("ADMIN_TOKEN_TTL", 24*time.Hour),
+		GoogleClientID:      getEnv("GOOGLE_CLIENT_ID", ""),
+		GoogleClientSecret:  getEnv("GOOGLE_CLIENT_SECRET", ""),
+		GitHubClientID:      getEnv("GITHUB_CLIENT_ID", ""),
+		GitHubClientSecret:  getEnv("GITHUB_CLIENT_SECRET", ""),
 		RedirectStatusCode:  getInt("REDIRECT_STATUS_CODE", 302),
 		CodeLength:          getInt("CODE_LENGTH", 8),
 		RedisURL:            getEnv("REDIS_URL", ""),

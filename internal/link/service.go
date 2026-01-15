@@ -42,6 +42,7 @@ type CreateRequest struct {
 	LongURL    string
 	ExpiresAt  *time.Time
 	CustomCode string
+	UserID     *int
 }
 
 type CreateResult struct {
@@ -79,7 +80,7 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*CreateResult
 	}
 
 	// Create link
-	if err := s.store.CreateLink(ctx, code, req.LongURL, req.ExpiresAt); err != nil {
+	if err := s.store.CreateLink(ctx, code, req.LongURL, req.ExpiresAt, req.UserID); err != nil {
 		return nil, err
 	}
 
@@ -188,6 +189,7 @@ type BatchCreateRequest struct {
 	LongURL    string
 	ExpiresAt  *time.Time
 	CustomCode string
+	UserID     *int
 }
 
 // BatchCreateResult holds the result for a single item.
@@ -205,6 +207,7 @@ func (s *Service) BatchCreate(ctx context.Context, requests []BatchCreateRequest
 			LongURL:    req.LongURL,
 			ExpiresAt:  req.ExpiresAt,
 			CustomCode: req.CustomCode,
+			UserID:     req.UserID,
 		})
 		if err != nil {
 			results[i] = BatchCreateResult{Index: i, Error: err}

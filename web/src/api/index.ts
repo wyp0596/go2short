@@ -79,8 +79,27 @@ export interface LinkStats {
   daily_clicks: DayClick[]
 }
 
+// Super admin login
 export async function login(username: string, password: string): Promise<LoginResponse> {
   const { data } = await api.post<LoginResponse>('/admin/login', { username, password })
+  return data
+}
+
+// User login (email + password)
+export async function userLogin(email: string, password: string): Promise<LoginResponse> {
+  const { data } = await api.post<LoginResponse>('/auth/login', { email, password })
+  return data
+}
+
+// User registration
+export async function register(email: string, password: string): Promise<LoginResponse> {
+  const { data } = await api.post<LoginResponse>('/auth/register', { email, password })
+  return data
+}
+
+// Get available OAuth providers
+export async function getOAuthProviders(): Promise<{ providers: string[] }> {
+  const { data } = await api.get<{ providers: string[] }>('/auth/providers')
   return data
 }
 
