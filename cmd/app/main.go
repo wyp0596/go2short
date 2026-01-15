@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/wyp0596/go2short/internal/cache"
 	"github.com/wyp0596/go2short/internal/config"
@@ -26,6 +27,7 @@ import (
 )
 
 func main() {
+	_ = godotenv.Load() // .env is optional
 	cfg := config.Load()
 
 	// Initialize cache

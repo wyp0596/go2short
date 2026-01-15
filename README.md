@@ -51,6 +51,9 @@ docker compose up -d postgres redis
 # Build frontend (required for embedding)
 cd web && npm install && npm run build && cd ..
 
+# Setup environment (optional, .env is auto-loaded)
+cp .env.example .env
+
 # Run the app locally
 go run ./cmd/app
 ```

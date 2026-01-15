@@ -51,6 +51,9 @@ docker compose up -d postgres redis
 # 构建前端（嵌入需要）
 cd web && npm install && npm run build && cd ..
 
+# 配置环境变量（可选，.env 会自动加载）
+cp .env.example .env
+
 # 本地运行应用
 go run ./cmd/app
 ```

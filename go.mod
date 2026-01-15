@@ -6,6 +6,7 @@ toolchain go1.24.4
 
 require (
 	github.com/gin-gonic/gin v1.9.1
+	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.10.9
 	github.com/prometheus/client_golang v1.23.2
 	github.com/redis/go-redis/v9 v9.17.2
